@@ -4,6 +4,7 @@ import os
 import cv2
 import shutil
 from django.conf import settings
+
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status
@@ -21,8 +22,7 @@ DB_PATH = os.path.join(settings.BASE_DIR, 'face_database')
 os.makedirs(DB_PATH, exist_ok=True)
 
 def capture_and_crop_face():
-    """Helper function: Opens camera, grabs frame, uses YOLO to crop the face."""
-    cap = cv2.VideoCapture(0)
+    cap = cv2.VideoCapture(settings.CAMERA_STREAM_URL)
     
     try:
         ret, frame = cap.read()
@@ -50,11 +50,9 @@ def capture_and_crop_face():
         return face_crop, None
         
     finally:
-        # ALWAYS release the camera, even if an error occurs
         cap.release()
 
 def clear_deepface_cache():
-    """Deletes DeepFace's .pkl files so it rebuilds its index on the next run."""
     for file in os.listdir(DB_PATH):
         if file.endswith(".pkl"):
             os.remove(os.path.join(DB_PATH, file))

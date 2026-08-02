@@ -25,8 +25,9 @@ SECRET_KEY = 'django-insecure-e2g%%s+9xlr3@iz)^s*-pnz#*_(bg^%84al)kga5^&u!15!lhw
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['*']
 
+CAMERA_STREAM_URL = "http://192.168.1.68:8080/video"
 
 # Application definition
 

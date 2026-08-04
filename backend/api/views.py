@@ -157,13 +157,13 @@ def verify_face(request):
             else:
                 return Response({
                     "status": "failed",
-                    "message": "Face not recognized or confidence below threshold.",
+                    "description": "Face not recognized or confidence below threshold.",
                     "confidence_score": round(1.0 - distance, 2)
                 }, status=status.HTTP_401_UNAUTHORIZED)
         else:
             return Response({
                 "status": "failed",
-                "message": "No match found in the database."
+                "description": "No match found in the database."
             }, status=status.HTTP_401_UNAUTHORIZED)
 
     except Exception as e:

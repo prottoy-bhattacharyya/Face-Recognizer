@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Face Recognition Dashboard</title>
+    <style>
+        :root {
+            --bg: #f3f4f6;
+            --card-bg: #ffffff;
+            --text: #1f2937;
+            --primary: #3b82f6;
+            --primary-hover: #2563eb;
+            --danger: #ef4444;
+            --danger-hover: #dc2626;
+            --success: #10b981;
+            --success-bg: #d1fae5;
+            --error-bg: #fee2e2;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            width: 100%;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            color: var(--text);
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+        }
+
+        .card {
+            background-color: var(--card-bg);
+            padding: 24px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .card h2 {
+            font-size: 1.2rem;
+            border-bottom: 2px solid var(--bg);
+            padding-bottom: 10px;
+            margin-bottom: 10px;
+        }
+
+        label {
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+
+        input {
+            padding: 10px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 1rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        input:focus {
+            border-color: var(--primary);
+        }
+
+        button {
+            padding: 12px;
+            border: none;
+            border-radius: 6px;
+            font-size: 1rem;
+            font-weight: 600;
+            color: white;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            margin-top: auto;
+        }
+
+        button:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+        }
+
+        .btn-primary { background-color: var(--primary); }
+        .btn-primary:hover:not(:disabled) { background-color: var(--primary-hover); }
+
+        .btn-danger { background-color: var(--danger); }
+        .btn-danger:hover:not(:disabled) { background-color: var(--danger-hover); }
+
+        /* Status Output Box */
+        .status-box {
+            margin-top: 30px;
+            padding: 20px;
+            border-radius: 12px;
+            background-color: var(--card-bg);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            min-height: 100px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            font-size: 0.95rem;
+            border-left: 5px solid #d1d5db;
+            display: none;
+        }
+
+        .status-success {
+            display: block;
+            border-left-color: var(--success);
+            background-color: var(--success-bg);
+            color: #065f46;
+        }
+
+        .status-error {
+            display: block;
+            border-left-color: var(--danger);
+            background-color: var(--error-bg);
+            color: #991b1b;
+        }
+
+        .loader {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 3px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+            margin-left: 8px;
+            vertical-align: middle;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Face Recognition System</h1>
+
+        <div class="grid">
+            <!-- Enroll Card -->
+            <div class="card">
+                <h2>1. Enroll Face</h2>
+                <p style="font-size: 0.85rem; color: #6b7280;">Look at the camera when clicking enroll.</p>
+                <label for="enrollName">User Name</label>
+                <input type="text" id="enrollName" placeholder="e.g. Prottoy">
+                <button class="btn-primary" id="btnEnroll" onclick="enrollFace()">Enroll User</button>
+            </div>
+
+            <!-- Verify Card -->
+            <div class="card">
+                <h2>2. Verify Face</h2>
+                <p style="font-size: 0.85rem; color: #6b7280;">Tests the face against the database.</p>
+                <label for="threshold">Strictness Threshold (0.1 - 1.0)</label>
+                <input type="number" id="threshold" value="0.5" step="0.1" min="0.1" max="1.0">
+                <button class="btn-primary" id="btnVerify" onclick="verifyFace()">Verify Face</button>
+            </div>
+
+            <!-- Remove Card -->
+            <div class="card">
+                <h2>3. Database Management</h2>
+                <p style="font-size: 0.85rem; color: #6b7280;">Leave blank to delete ALL users.</p>
+                <label for="removeName">User Name to Remove</label>
+                <input type="text" id="removeName" placeholder="e.g. Prottoy">
+                <button class="btn-danger" id="btnRemove" onclick="removeFace()">Delete Data</button>
+            </div>
+        </div>
+
+        <!-- Output Box -->
+        <div id="statusBox" class="status-box"></div>
+    </div>
+
+    <script>
+        // Set this to your Django backend URL
+        const API_BASE_URL = 'http://127.0.0.1:8000';
+
+        // UI Helpers
+        const statusBox = document.getElementById('statusBox');
+
+        function setStatus(data, isError = false) {
+            statusBox.className = 'status-box ' + (isError ? 'status-error' : 'status-success');
+            // Format JSON nicely in the output box
+            statusBox.innerText = typeof data === 'object' ? JSON.stringify(data, null, 4) : data;
+        }
+
+        function toggleLoading(btnId, isLoading, defaultText) {
+            const btn = document.getElementById(btnId);
+            if (isLoading) {
+                btn.disabled = true;
+                btn.innerHTML = `${defaultText} <span class="loader"></span>`;
+            } else {
+                btn.disabled = false;
+                btn.innerHTML = defaultText;
+            }
+        }
+
+        // --- API CALLS ---
+
+        async function enrollFace() {
+            const name = document.getElementById('enrollName').value.trim();
+            if (!name) {
+                setStatus("Error: Please enter a name to enroll.", true);
+                return;
+            }
+
+            toggleLoading('btnEnroll', true, 'Enrolling');
+            try {
+                const response = await fetch(`${API_BASE_URL}/faces/${name}/`, {
+                    method: 'POST'
+                });
+                const data = await response.json();
+                setStatus(data, !response.ok);
+            } catch (error) {
+                setStatus(`Network Error: Make sure Django is running.\n${error.message}`, true);
+            } finally {
+                toggleLoading('btnEnroll', false, 'Enroll User');
+                document.getElementById('enrollName').value = ''; // clear input
+            }
+        }
+
+        async function verifyFace() {
+            const threshold = document.getElementById('threshold').value;
+
+            toggleLoading('btnVerify', true, 'Verifying');
+            try {
+                const response = await fetch(`${API_BASE_URL}/verify/?threshold=${threshold}`, {
+                    method: 'GET'
+                });
+                const data = await response.json();
+                setStatus(data, !response.ok);
+            } catch (error) {
+                setStatus(`Network Error: Make sure Django is running.\n${error.message}`, true);
+            } finally {
+                toggleLoading('btnVerify', false, 'Verify Face');
+            }
+        }
+
+        async function removeFace() {
+            const name = document.getElementById('removeName').value.trim();
+            
+            // If name is provided, delete specific user. Else, delete all.
+            const url = name ? `${API_BASE_URL}/faces/${name}/` : `${API_BASE_URL}/faces/`;
+            
+            const confirmMsg = name ? `Are you sure you want to delete ${name}?` : "Are you sure you want to delete ALL faces?";
+            if (!confirm(confirmMsg)) return;
+
+            toggleLoading('btnRemove', true, 'Deleting');
+            try {
+                const response = await fetch(url, {
+                    method: 'DELETE'
+                });
+                const data = await response.json();
+                setStatus(data, !response.ok);
+            } catch (error) {
+                setStatus(`Network Error: Make sure Django is running.\n${error.message}`, true);
+            } finally {
+                toggleLoading('btnRemove', false, 'Delete Data');
+                document.getElementById('removeName').value = ''; // clear input
+            }
+        }
+    </script>
+</body>
+</html>

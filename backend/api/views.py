@@ -61,6 +61,9 @@ def clear_deepface_cache():
 # API ENDPOINTS
 # ==========================================
 
+def index(request):
+    return render(request, 'index.html')
+
 @api_view(['POST', 'DELETE'])
 def manage_user_face(request, name):
     user_folder = os.path.join(DB_PATH, name)

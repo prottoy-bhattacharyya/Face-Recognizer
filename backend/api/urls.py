@@ -2,6 +2,7 @@ from django.urls import path
 from . import views
 
 urlpatterns = [
+    path('', views.index, name='index'),
     # Maps to POST and DELETE
     path('faces/<str:name>/', views.manage_user_face, name='manage_user_face'),
     

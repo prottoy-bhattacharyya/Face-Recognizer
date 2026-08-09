@@ -27,7 +27,8 @@ DEBUG = True
 
 ALLOWED_HOSTS = ['*']
 
-CAMERA_STREAM_URL = "http://192.168.1.68:8080/video"
+CAMERA_URL = "http://192.168.1.38"
+CAMERA_STREAM_URL = f"{CAMERA_URL}:81/stream"
 
 # Application definition
 

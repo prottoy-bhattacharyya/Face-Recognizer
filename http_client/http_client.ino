@@ -1,7 +1,14 @@
+#include <LiquidCrystal.h>
+
 #include <ESP8266WiFi.h>
 #include <ESP8266HTTPClient.h>
 #include <WiFiClient.h>
-#include <ArduinoJson.h> // Include ArduinoJson library
+#include "ArduinoJson.h" 
+#include <LiquidCrystal_I2C.h>
+
+LiquidCrystal_I2C lcd(0x27,16,2);
+
+int show=0;
 
 const char* ssid = "Bachelor Family 2.4G";
 const char* password = "passwordnai";
@@ -11,22 +18,46 @@ String server_url = "http://192.168.1.138:8000/";
 WiFiClient client;
 HTTPClient http;
 
-void convertJson(){
+bool checkRequest(String payload) {
     JsonDocument doc;
     DeserializationError error = deserializeJson(doc, payload);
 
-    if (error){
-      Serial.print("Enroll Face: Enroll JSON parsing failed: ");
+    if (error) {
+      Serial.print("JSON parsing failed: ");
       Serial.println(error.c_str());
-      return;
+      return false;
     }
 
-    const char* status = doc["status"];
-    const char* enrolled_name = doc["name"];
-    
-    if (status == "success"){
-      Serial.println(enrolled_name + "added.")
+    // Cast directly to String to enable proper string comparison
+    String status = doc["status"].as<String>();
+
+    if (status == "success") {
+      String name = doc["name"].as<String>();
+      Serial.println("Response OK. Name: " + name);
+      lcd.setCursor(0, 0);
+      lcd.print(name);
+      return true;
     }
+
+    if (status == "failed") {
+      // Check both 'description' and 'message' keys
+      String errorMsg = "";
+      if (doc.containsKey("description")) {
+        errorMsg = doc["description"].as<String>();
+      } else if (doc.containsKey("message")) {
+        errorMsg = doc["message"].as<String>();
+      } else {
+        errorMsg = "Unknown error";
+      }
+
+      lcd.setCursor(0, 0);
+      lcd.print("Error:");
+      lcd.setCursor(0, 1);
+      Serial.println("Error: " + errorMsg);
+      return false;
+    }
+
+    return false;
 }
 
 void enroll_face(String name){
@@ -37,8 +68,7 @@ void enroll_face(String name){
 
     if (httpPostCode > 0) {
       String payload = http.getString();
-      Serial.println("POST Response: " + payload);
-
+      Serial.println("Enroll Response: " + checkRequest(payload));
     }
     http.end();
 }
@@ -49,7 +79,7 @@ void verify_face(){
     int httpGetCode = http.GET();
     if (httpGetCode > 0) {
       String payload = http.getString();
-      Serial.println("GET Response: " + payload);
+      Serial.println("Verify Response: " + checkRequest(payload));
     }
     else {
       Serial.println(httpGetCode);
@@ -63,9 +93,15 @@ void delete_face(String name){
     int httpDeleteCode = http.sendRequest("DELETE");
     if (httpDeleteCode > 0) {
       String payload = http.getString();
-      Serial.println("DELETE Response: " + payload);
+      Serial.println("DELETE Response: " + checkRequest(payload));
     }
     http.end();
+}
+
+void init_lcd(){
+  lcd.init();
+  lcd.backlight();
+  Serial.println("lcd init");
 }
 
 void setup() {
@@ -78,6 +114,8 @@ void setup() {
   }
   Serial.println("\nConnected to WiFi");
   Serial.println("IP: " + WiFi.localIP().toString());
+
+  init_lcd();
 }
 
 void loop() {
@@ -88,5 +126,5 @@ void loop() {
     delete_face("Prottoy");
   }
   
-  delay(1000); // Repeat every 10 seconds
+  delay(1000);
 }

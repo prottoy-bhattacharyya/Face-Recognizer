@@ -62,7 +62,10 @@ def clear_deepface_cache():
 # ==========================================
 
 def index(request):
-    return render(request, 'index.html')
+    return render(request, 'index.html', {
+        'camera_stream_url': settings.CAMERA_STREAM_URL,
+        'camera_url': settings.CAMERA_URL,
+    })
 
 @api_view(['POST', 'DELETE'])
 def manage_user_face(request, name):
@@ -94,7 +97,7 @@ def manage_user_face(request, name):
             clear_deepface_cache()
             return Response({
                 "status": "success", 
-                "message": "User has been successfully removed."
+                "description": "User has been successfully removed."
             }, status=status.HTTP_200_OK)
         else:
             return Response({
@@ -112,7 +115,7 @@ def reset_database(request):
     
     return Response({
         "status": "success", 
-        "message": "All faces have been successfully removed."
+        "description": "All faces have been successfully removed."
     }, status=status.HTTP_200_OK)
 
 

@@ -9,5 +9,6 @@ wheels/
 my_db/*
 face_database/*
 test_images/*
+.env
 # Virtual environments
 .venv

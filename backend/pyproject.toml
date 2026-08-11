@@ -13,6 +13,7 @@ dependencies = [
     "djangorestframework>=3.17.1",
     "matplotlib>=3.11.1",
     "opencv-python>=4.11,<5",
+    "pymysql>=1.2.0",
     "requests>=2.34.2",
     "tf-keras>=2.21.0",
     "ultralytics>=8.4.114",

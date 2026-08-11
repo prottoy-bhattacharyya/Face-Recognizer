@@ -5,6 +5,8 @@ import requests
 from ultralytics import YOLO
 from django.conf import settings
 
+from api.utils import connect_db
+
 class ApiConfig(AppConfig):
     name = 'api'
     verbose_name = 'Face Recognition API'
@@ -53,6 +55,28 @@ class ApiConfig(AppConfig):
             print("yolov8n-face.pt model downloaded and saved.")
         else:
             print("yolov8n-face.pt model already exists.")
+
+    def create_tables(self):
+        cursor = connect_db().cursor()
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                username VARCHAR(255) UNIQUE NOT NULL,
+                password VARCHAR(255) NOT NULL
+            )
+        """)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS face_database (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                username VARCHAR(255) NOT NULL,
+                image_path VARCHAR(255) NOT NULL,
+                FOREIGN KEY (username) REFERENCES users(username)
+            )
+        """)
+        connect_db().commit()
+        print(
+            "Database tables created successfully"
+        )
 
     def ready(self):
         os.makedirs("models", exist_ok=True)

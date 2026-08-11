@@ -11,6 +11,9 @@ from rest_framework import status
 from ultralytics import YOLO
 from deepface import DeepFace
 
+from .utils import connect_db
+
+
 # 1. Initialize YOLOv8 Face Model (Downloads automatically if missing)
 # yolov8n-face.pt is fine-tuned specifically for faces, much better than standard yolov8n
 
@@ -66,6 +69,45 @@ def index(request):
         'camera_stream_url': settings.CAMERA_STREAM_URL,
         'camera_url': settings.CAMERA_URL,
     })
+
+def login(request):
+    if request.method == "POST":
+        username = request.POST.get('username')
+        password = request.POST.get('password')
+
+        cursor = connect_db().cursor()
+        cursor.execute("SELECT * FROM users WHERE username = %s AND password = %s", (username, password))
+        user = cursor.fetchone()
+
+        if user:
+            return render(request, 'index.html', {
+                'camera_stream_url': settings.CAMERA_STREAM_URL,
+                'camera_url': settings.CAMERA_URL,
+                'username': username
+            })
+        
+        else:
+            return render(request, 'login.html', {'error': 'Invalid credentials'})
+    return render(request, 'login.html')
+
+def signup(request):
+    if request.method == "POST":
+        username = request.POST.get('username')
+        password = request.POST.get('password')
+
+        cursor = connect_db().cursor()
+        cursor.execute("SELECT * FROM users WHERE username = %s", (username,))
+        existing_user = cursor.fetchone()
+
+        if existing_user:
+            return render(request, 'signup.html', {'error': 'Username already exists'})
+
+        cursor.execute("INSERT INTO users (username, password) VALUES (%s, %s)", (username, password))
+        connect_db().commit()
+
+        return render(request, 'index.html')
+
+    return render(request, 'signup.html')
 
 @api_view(['POST', 'DELETE'])
 def manage_user_face(request, name):

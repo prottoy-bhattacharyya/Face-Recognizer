@@ -11,6 +11,8 @@
 #define SCREEN_WIDTH 128
 #define SCREEN_HEIGHT 32
 #define OLED_RESET    -1  // Reset pin # (or -1 if sharing ESP8266 reset pin)
+#define BLUE_LED_PIN 14
+#define YLW_LED_PIN 12
 
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
@@ -28,17 +30,15 @@ void showText(String line1, String line2 = "") {
   display.setTextSize(1);
   display.setTextColor(SSD1306_WHITE);
   
-  // Line 1 (Header/Action)
   display.setCursor(0, 0);
   display.println(line1);
   
-  // Line 2 (Detail/Name/Status)
   if (line2.length() > 0) {
     display.setCursor(0, 16);
     display.println(line2);
   }
   
-  display.display(); // Push buffer to OLED hardware
+  display.display();
 }
 
 bool checkRequest(String action, String payload) {
@@ -55,11 +55,14 @@ bool checkRequest(String action, String payload) {
   String status = doc["status"].as<String>();
 
   if (status == "success") {
+    turn_on_led(BLUE_LED_PIN);
+    turn_off_led(YLW_LED_PIN);
+
     String message = "";
     if (doc.containsKey("name")) {
       message = doc["name"].as<String>();
     } else if (doc.containsKey("message")) {
-      message = doc["message"].as<String>();
+      message = doc["description"].as<String>();
     } else {
       message = "Success";
     }
@@ -70,11 +73,11 @@ bool checkRequest(String action, String payload) {
   }
 
   if (status == "failed") {
+    turn_on_led(YLW_LED_PIN);
+    turn_off_led(BLUE_LED_PIN);
     String errorMsg = "Unknown error";
     if (doc.containsKey("description")) {
       errorMsg = doc["description"].as<String>();
-    } else if (doc.containsKey("message")) {
-      errorMsg = doc["message"].as<String>();
     }
 
     Serial.println("[" + action + "] Error: " + errorMsg);
@@ -132,17 +135,25 @@ void delete_face(String name) {
 }
 
 void init_display() {
-  // Initialize SSD1306 OLED at I2C address 0x3C
   if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
     Serial.println(F("SSD1306 allocation failed"));
-    for (;;); // Don't proceed, loop forever
   }
   showText("System Init", "Starting...");
+}
+
+void turn_on_led(int pin){
+  digitalWrite(pin, HIGH);
+}
+
+void turn_off_led(int pin){
+  digitalWrite(pin, LOW);
 }
 
 void setup() {
   Serial.begin(115200);
   init_display();
+  pinMode(BLUE_LED_PIN, OUTPUT);
+  pinMode(YLW_LED_PIN, OUTPUT);
 
   showText("Connecting WiFi", ssid);
   WiFi.begin(ssid, password);
@@ -172,6 +183,6 @@ void loop() {
   } else {
     showText("WiFi Disconnected", "Reconnecting...");
   }
-  
+
   delay(5000);
 }

@@ -1,14 +1,18 @@
-#include <LiquidCrystal.h>
-
 #include <ESP8266WiFi.h>
 #include <ESP8266HTTPClient.h>
 #include <WiFiClient.h>
-#include "ArduinoJson.h" 
-#include <LiquidCrystal_I2C.h>
+#include "ArduinoJson.h"
 
-LiquidCrystal_I2C lcd(0x27,16,2);
+#include <SPI.h>
+#include <Wire.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
 
-int show=0;
+#define SCREEN_WIDTH 128
+#define SCREEN_HEIGHT 32
+#define OLED_RESET    -1  // Reset pin # (or -1 if sharing ESP8266 reset pin)
+
+Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
 const char* ssid = "Bachelor Family 2.4G";
 const char* password = "passwordnai";
@@ -18,113 +22,156 @@ String server_url = "http://192.168.1.138:8000/";
 WiFiClient client;
 HTTPClient http;
 
-bool checkRequest(String payload) {
-    JsonDocument doc;
-    DeserializationError error = deserializeJson(doc, payload);
+// Helper function to render 2 lines of text on the 128x32 OLED display
+void showText(String line1, String line2 = "") {
+  display.clearDisplay();
+  display.setTextSize(1);
+  display.setTextColor(SSD1306_WHITE);
+  
+  // Line 1 (Header/Action)
+  display.setCursor(0, 0);
+  display.println(line1);
+  
+  // Line 2 (Detail/Name/Status)
+  if (line2.length() > 0) {
+    display.setCursor(0, 16);
+    display.println(line2);
+  }
+  
+  display.display(); // Push buffer to OLED hardware
+}
 
-    if (error) {
-      Serial.print("JSON parsing failed: ");
-      Serial.println(error.c_str());
-      return false;
-    }
+bool checkRequest(String action, String payload) {
+  JsonDocument doc;
+  DeserializationError error = deserializeJson(doc, payload);
 
-    // Cast directly to String to enable proper string comparison
-    String status = doc["status"].as<String>();
-
-    if (status == "success") {
-      String name = doc["name"].as<String>();
-      Serial.println("Response OK. Name: " + name);
-      lcd.setCursor(0, 0);
-      lcd.print(name);
-      return true;
-    }
-
-    if (status == "failed") {
-      // Check both 'description' and 'message' keys
-      String errorMsg = "";
-      if (doc.containsKey("description")) {
-        errorMsg = doc["description"].as<String>();
-      } else if (doc.containsKey("message")) {
-        errorMsg = doc["message"].as<String>();
-      } else {
-        errorMsg = "Unknown error";
-      }
-
-      lcd.setCursor(0, 0);
-      lcd.print("Error:");
-      lcd.setCursor(0, 1);
-      Serial.println("Error: " + errorMsg);
-      return false;
-    }
-
+  if (error) {
+    Serial.print("JSON parsing failed: ");
+    Serial.println(error.c_str());
+    showText(action + " Failed", "JSON Parse Error");
     return false;
+  }
+
+  String status = doc["status"].as<String>();
+
+  if (status == "success") {
+    String message = "";
+    if (doc.containsKey("name")) {
+      message = doc["name"].as<String>();
+    } else if (doc.containsKey("message")) {
+      message = doc["message"].as<String>();
+    } else {
+      message = "Success";
+    }
+
+    Serial.println("[" + action + "] OK: " + message);
+    showText(action + ": OK", message);
+    return true;
+  }
+
+  if (status == "failed") {
+    String errorMsg = "Unknown error";
+    if (doc.containsKey("description")) {
+      errorMsg = doc["description"].as<String>();
+    } else if (doc.containsKey("message")) {
+      errorMsg = doc["message"].as<String>();
+    }
+
+    Serial.println("[" + action + "] Error: " + errorMsg);
+    showText(action + ": FAILED", errorMsg);
+    return false;
+  }
+
+  return false;
 }
 
-void enroll_face(String name){
-    // 2. HTTP POST Request
-    http.begin(client, server_url + "faces/" + name + "/");
-    http.addHeader("Content-Type", "application/json");
-    int httpPostCode = http.POST("{}");
+void enroll_face(String name) {
+  showText("Enrolling...", name);
+  
+  http.begin(client, server_url + "faces/" + name + "/");
+  http.addHeader("Content-Type", "application/json");
+  int httpPostCode = http.POST("{}");
 
-    if (httpPostCode > 0) {
-      String payload = http.getString();
-      Serial.println("Enroll Response: " + checkRequest(payload));
-    }
-    http.end();
+  if (httpPostCode > 0) {
+    String payload = http.getString();
+    checkRequest("Enroll", payload);
+  } else {
+    showText("Enroll Error", "HTTP Code: " + String(httpPostCode));
+  }
+  http.end();
 }
 
-void verify_face(){
-    // 1. HTTP GET Request
-    http.begin(client, server_url + "verify/");
-    int httpGetCode = http.GET();
-    if (httpGetCode > 0) {
-      String payload = http.getString();
-      Serial.println("Verify Response: " + checkRequest(payload));
-    }
-    else {
-      Serial.println(httpGetCode);
-    }
-    http.end();
+void verify_face() {
+  showText("Verifying...", "Scanning face");
+  
+  http.begin(client, server_url + "verify/");
+  int httpGetCode = http.GET();
+
+  if (httpGetCode > 0) {
+    String payload = http.getString();
+    checkRequest("Verify", payload);
+  } else {
+    showText("Verify Error", "HTTP Code: " + String(httpGetCode));
+  }
+  http.end();
 }
 
-void delete_face(String name){
-    // 3. HTTP DELETE Request
-    http.begin(client, server_url + "faces/" + name + "/");
-    int httpDeleteCode = http.sendRequest("DELETE");
-    if (httpDeleteCode > 0) {
-      String payload = http.getString();
-      Serial.println("DELETE Response: " + checkRequest(payload));
-    }
-    http.end();
+void delete_face(String name) {
+  showText("Deleting...", name);
+  
+  http.begin(client, server_url + "faces/" + name + "/");
+  int httpDeleteCode = http.sendRequest("DELETE");
+
+  if (httpDeleteCode > 0) {
+    String payload = http.getString();
+    checkRequest("Delete", payload);
+  } else {
+    showText("Delete Error", "HTTP Code: " + String(httpDeleteCode));
+  }
+  http.end();
 }
 
-void init_lcd(){
-  lcd.init();
-  lcd.backlight();
-  Serial.println("lcd init");
+void init_display() {
+  // Initialize SSD1306 OLED at I2C address 0x3C
+  if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
+    Serial.println(F("SSD1306 allocation failed"));
+    for (;;); // Don't proceed, loop forever
+  }
+  showText("System Init", "Starting...");
 }
 
 void setup() {
   Serial.begin(115200);
+  init_display();
+
+  showText("Connecting WiFi", ssid);
   WiFi.begin(ssid, password);
-  
+
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.print(".");
   }
+
   Serial.println("\nConnected to WiFi");
   Serial.println("IP: " + WiFi.localIP().toString());
-
-  init_lcd();
+  
+  showText("WiFi Connected!", WiFi.localIP().toString());
+  delay(2000);
 }
 
 void loop() {
   if (WiFi.status() == WL_CONNECTED) {
     enroll_face("Prottoy");
-    delay(1000);
+    delay(3000);
+    
     verify_face();
+    delay(3000);
+    
     delete_face("Prottoy");
+    delay(3000);
+  } else {
+    showText("WiFi Disconnected", "Reconnecting...");
   }
   
-  delay(1000);
+  delay(5000);
 }

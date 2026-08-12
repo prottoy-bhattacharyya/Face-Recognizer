@@ -16,13 +16,6 @@ class ApiConfig(AppConfig):
         super().__init__(*args, **kwargs)
         self.ready()  # Call the ready method to ensure the model is downloaded
 
-    def set_xclk_of_camera(self, xclk_value):
-        response = requests.get(f"{settings.CAMERA_URL}/xclk?xclk={xclk_value}")
-        if response.status_code == 200:
-            print(f"XCLK value set to {xclk_value} successfully.")
-        else:
-            print(f"Failed to set XCLK value. error: {response.status_code}, {response.text}")
-
     def test_camera(self):
         cap = cv2.VideoCapture(settings.CAMERA_STREAM_URL)
         if not cap.isOpened():
@@ -81,7 +74,6 @@ class ApiConfig(AppConfig):
     def ready(self):
         os.makedirs("models", exist_ok=True)
         self.download_yolo_model()
-        self.set_xclk_of_camera(16)
         self.test_camera()
         self.test_yolo_model()
         self.create_tables()

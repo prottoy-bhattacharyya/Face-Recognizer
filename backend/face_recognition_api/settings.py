@@ -29,6 +29,7 @@ ALLOWED_HOSTS = ['*']
 
 CAMERA_URL = "http://192.168.1.38"
 CAMERA_STREAM_URL = f"{CAMERA_URL}:81/stream"
+CONTROL_SERVER_URL = "http://192.168.1.55/"
 
 # Application definition
 

@@ -54,6 +54,32 @@
         font-size: 0.95rem;
       }
 
+      .header-actions {
+        margin-top: 18px;
+        display: flex;
+        justify-content: center;
+      }
+
+      .nav-button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        text-decoration: none;
+        background-color: var(--primary);
+        color: #fff;
+        border: none;
+        border-radius: 8px;
+        padding: 12px 18px;
+        font-size: 0.95rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background-color 0.2s;
+      }
+
+      .nav-button:hover {
+        background-color: var(--primary-hover);
+      }
+
       .grid {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
@@ -340,6 +366,9 @@
       <div class="header">
         <h1>Face Recognition System</h1>
         <p>Enroll, verify, and manage registered faces via the camera.</p>
+        <div class="header-actions">
+          <a class="nav-button" href="{% url 'controls' %}">Go to Controls Page</a>
+        </div>
       </div>
 
       <!-- Live Video Stream -->
@@ -452,9 +481,10 @@
       // Served by Django at the same origin, so relative URLs work.
       const API_BASE_URL = window.location.origin;
 
-      // Camera stream URLs injected from Django settings.
+      // Camera stream URLs injected from Django settings.  
       const CAMERA_STREAM_URL = "{{ camera_stream_url }}";
       const CAMERA_URL = "{{ camera_url }}";
+      const CONTROL_SERVER_URL = "{{ control_server_url }}";
 
       const statusBox = document.getElementById("statusBox");
 

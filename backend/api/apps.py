@@ -84,3 +84,4 @@ class ApiConfig(AppConfig):
         self.set_xclk_of_camera(16)
         self.test_camera()
         self.test_yolo_model()
+        self.create_tables()

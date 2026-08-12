@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Smart Room & Gate Dashboard</title>
+  <style>
+    :root {
+      --bg-color: #0f172a;
+      --card-bg: #1e293b;
+      --text-main: #f8fafc;
+      --text-sub: #94a3b8;
+      --accent-blue: #38bdf8;
+      --accent-green: #22c55e;
+      --accent-amber: #f59e0b;
+      --accent-red: #ef4444;
+      --border-color: #334155;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      padding: 24px;
+      display: flex;
+      justify-content: center;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 900px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    h1 {
+      font-size: 1.5rem;
+      font-weight: 600;
+    }
+
+    .config-box {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--card-bg);
+      padding: 8px 14px;
+      border-radius: 8px;
+      border: 1px solid var(--border-color);
+    }
+
+    .config-box label {
+      font-size: 0.85rem;
+      color: var(--text-sub);
+    }
+
+    .config-box input {
+      background: transparent;
+      border: none;
+      color: var(--text-main);
+      font-family: monospace;
+      font-size: 0.9rem;
+      outline: none;
+      width: 180px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 16px;
+    }
+
+    .card {
+      background-color: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .card-title {
+      font-size: 0.9rem;
+      color: var(--text-sub);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .metric-value {
+      font-size: 2.2rem;
+      font-weight: 700;
+      margin-top: 4px;
+    }
+
+    .badge {
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    .badge-on { background: rgba(34, 197, 94, 0.2); color: var(--accent-green); }
+    .badge-off { background: rgba(148, 163, 184, 0.2); color: var(--text-sub); }
+
+    .controls-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 12px;
+      margin-top: 8px;
+    }
+
+    .btn {
+      padding: 12px 16px;
+      border-radius: 8px;
+      border: 1px solid var(--border-color);
+      background-color: #273549;
+      color: var(--text-main);
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn:hover { background-color: #334155; }
+    .btn:active { transform: scale(0.98); }
+    .btn-primary { background-color: #0284c7; border-color: #0369a1; }
+    .btn-primary:hover { background-color: #0369a1; }
+
+    .status-bar {
+      font-size: 0.85rem;
+      color: var(--text-sub);
+      text-align: right;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <header>
+      <h1>IoT Control Center</h1>
+      <div class="config-box">
+        <label for="apiUrl">ESP8266 IP:</label>
+        <input type="text" id="apiUrl" value="http://192.168.1.250">
+      </div>
+    </header>
+
+    <!-- Metrics Section -->
+    <div class="grid">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Temperature</span>
+        </div>
+        <div class="metric-value" id="tempVal">-- °C</div>
+        <div style="font-size: 0.8rem; color: var(--text-sub); margin-top: 8px;">
+          Auto-Fan Threshold: <span id="thresholdVal">30</span>°C
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Humidity</span>
+        </div>
+        <div class="metric-value" id="humVal">-- %</div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Light Status</span>
+          <span class="badge badge-off" id="lightBadge">OFF</span>
+        </div>
+        <div class="controls-grid">
+          <button class="btn" onclick="sendControl('/turn_on_light')">Turn ON</button>
+          <button class="btn" onclick="sendControl('/turn_off_light')">Turn OFF</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Fan Status</span>
+          <span class="badge badge-off" id="fanBadge">OFF</span>
+        </div>
+        <div class="controls-grid">
+          <button class="btn" onclick="sendControl('/fan?state=on')">Turn ON</button>
+          <button class="btn" onclick="sendControl('/fan?state=off')">Turn OFF</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Gate Trigger Section -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Gate Control</span>
+      </div>
+      <button class="btn btn-primary" onclick="sendControl('/gate_open')">Open Gate (5s Auto-Close)</button>
+    </div>
+
+    <div class="status-bar" id="statusBar">Connecting to server...</div>
+  </div>
+
+  <script>
+    function getBaseUrl() {
+      let url = document.getElementById('apiUrl').value.trim();
+      if (!url.startsWith('http://') && !url.startsWith('https://')) {
+        url = 'http://' + url;
+      }
+      return url.endsWith('/') ? url.slice(0, -1) : url;
+    }
+
+    function updateUI(data) {
+      if (data.temperature !== undefined) {
+        document.getElementById('tempVal').innerText = data.temperature.toFixed(1) + ' °C';
+      }
+      if (data.humidity !== undefined) {
+        document.getElementById('humVal').innerText = data.humidity.toFixed(1) + ' %';
+      }
+      if (data.temp_threshold !== undefined) {
+        document.getElementById('thresholdVal').innerText = data.temp_threshold;
+      }
+
+      if (data.light_status) {
+        const badge = document.getElementById('lightBadge');
+        badge.innerText = data.light_status;
+        badge.className = 'badge ' + (data.light_status === 'ON' ? 'badge-on' : 'badge-off');
+      }
+
+      if (data.fan_status) {
+        const badge = document.getElementById('fanBadge');
+        badge.innerText = data.fan_status;
+        badge.className = 'badge ' + (data.fan_status === 'ON' ? 'badge-on' : 'badge-off');
+      }
+    }
+
+    async function fetchSensors() {
+      try {
+        const response = await fetch(`${getBaseUrl()}/sensors`);
+        if (!response.ok) throw new Error('HTTP Error ' + response.status);
+        const data = await response.json();
+        updateUI(data);
+        document.getElementById('statusBar').innerText = 'Last updated: ' + new Date().toLocaleTimeString();
+      } catch (err) {
+        document.getElementById('statusBar').innerText = 'Connection Error: ' + err.message;
+      }
+    }
+
+    async function sendControl(endpoint) {
+      try {
+        document.getElementById('statusBar').innerText = 'Sending command...';
+        const response = await fetch(`${getBaseUrl()}${endpoint}`);
+        if (!response.ok) throw new Error('HTTP Error ' + response.status);
+        const data = await response.json();
+        updateUI(data);
+        document.getElementById('statusBar').innerText = 'Command executed successfully!';
+      } catch (err) {
+        document.getElementById('statusBar').innerText = 'Command Failed: ' + err.message;
+      }
+    }
+
+    // Auto-refresh sensor data every 3 seconds
+    setInterval(fetchSensors, 3000);
+    fetchSensors();
+  </script>
+</body>
+</html>

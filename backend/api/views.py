@@ -68,6 +68,12 @@ def index(request):
     return render(request, 'index.html', {
         'camera_stream_url': settings.CAMERA_STREAM_URL,
         'camera_url': settings.CAMERA_URL,
+        'control_server_url': settings.CONTROL_SERVER_URL
+    })
+def controls(request):
+    return render(request, 'controls.html', {
+        'camera_url': settings.CAMERA_URL,
+        'control_server_url': settings.CONTROL_SERVER_URL
     })
 
 def login(request):
@@ -83,6 +89,7 @@ def login(request):
             return render(request, 'index.html', {
                 'camera_stream_url': settings.CAMERA_STREAM_URL,
                 'camera_url': settings.CAMERA_URL,
+                'control_server_url': settings.CONTROL_SERVER_URL,
                 'username': username
             })
         
@@ -105,7 +112,11 @@ def signup(request):
         cursor.execute("INSERT INTO users (username, password) VALUES (%s, %s)", (username, password))
         connect_db().commit()
 
-        return render(request, 'index.html')
+        return render(request, 'index.html', {
+                'camera_stream_url': settings.CAMERA_STREAM_URL,
+                'camera_url': settings.CAMERA_URL,
+                'control_server_url': settings.CONTROL_SERVER_URL
+            })
 
     return render(request, 'signup.html')
 

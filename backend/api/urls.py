@@ -2,9 +2,11 @@ from django.urls import path
 from . import views
 
 urlpatterns = [
-    path('', views.index, name='index'),
-    path('login/', views.login, name='login'),
+    path('', views.login, name='login'),
     path('signup/', views.signup, name='signup'),
+
+    path('index/', views.index, name='index'),
+    path('controls/', views.controls, name='controls'),
     
     # Maps to POST and DELETE
     path('faces/<str:name>/', views.manage_user_face, name='manage_user_face'),

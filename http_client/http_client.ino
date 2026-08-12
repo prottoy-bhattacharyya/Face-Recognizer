@@ -8,9 +8,14 @@
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 
+#include <Servo.h>
+
+Servo door_servo;
+Servo fan_servo;
+
 #define SCREEN_WIDTH 128
 #define SCREEN_HEIGHT 32
-#define OLED_RESET    -1  // Reset pin # (or -1 if sharing ESP8266 reset pin)
+#define OLED_RESET    -1
 #define BLUE_LED_PIN 14
 #define YLW_LED_PIN 12
 
@@ -19,10 +24,27 @@ Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 const char* ssid = "Bachelor Family 2.4G";
 const char* password = "passwordnai";
 
-String server_url = "http://192.168.1.138:8000/";
+String server_url = "http://192.168.1.210:8000/";
+String second_esp_url = "http://192.168.1.55/";
 
 WiFiClient client;
 HTTPClient http;
+
+
+void triggerSecondESP() {
+  if (WiFi.status() == WL_CONNECTED) {
+    HTTPClient httpSecond;
+    httpSecond.begin(client, second_esp_url + "gate_open");
+    int httpCode = httpSecond.GET();
+    if (httpCode > 0) {
+      Serial.println("Second ESP8266 responded: " + String(httpCode));
+    } else {
+      Serial.println("Error communicating with Second ESP: " + String(httpCode));
+    }
+    httpSecond.end();
+  }
+}
+
 
 // Helper function to render 2 lines of text on the 128x32 OLED display
 void showText(String line1, String line2 = "") {
@@ -55,9 +77,6 @@ bool checkRequest(String action, String payload) {
   String status = doc["status"].as<String>();
 
   if (status == "success") {
-    turn_on_led(BLUE_LED_PIN);
-    turn_off_led(YLW_LED_PIN);
-
     String message = "";
     if (doc.containsKey("name")) {
       message = doc["name"].as<String>();
@@ -73,8 +92,6 @@ bool checkRequest(String action, String payload) {
   }
 
   if (status == "failed") {
-    turn_on_led(YLW_LED_PIN);
-    turn_off_led(BLUE_LED_PIN);
     String errorMsg = "Unknown error";
     if (doc.containsKey("description")) {
       errorMsg = doc["description"].as<String>();
@@ -112,7 +129,9 @@ void verify_face() {
 
   if (httpGetCode > 0) {
     String payload = http.getString();
-    checkRequest("Verify", payload);
+    if(checkRequest("Verify", payload)){
+      triggerSecondESP();
+    }
   } else {
     showText("Verify Error", "HTTP Code: " + String(httpGetCode));
   }
@@ -141,19 +160,13 @@ void init_display() {
   showText("System Init", "Starting...");
 }
 
-void turn_on_led(int pin){
-  digitalWrite(pin, HIGH);
-}
-
-void turn_off_led(int pin){
-  digitalWrite(pin, LOW);
-}
-
 void setup() {
   Serial.begin(115200);
   init_display();
   pinMode(BLUE_LED_PIN, OUTPUT);
   pinMode(YLW_LED_PIN, OUTPUT);
+  door_servo.attach(D5);
+  fan_servo.attach(D6);
 
   showText("Connecting WiFi", ssid);
   WiFi.begin(ssid, password);
@@ -172,14 +185,7 @@ void setup() {
 
 void loop() {
   if (WiFi.status() == WL_CONNECTED) {
-    enroll_face("Prottoy");
-    delay(3000);
-    
     verify_face();
-    delay(3000);
-    
-    delete_face("Prottoy");
-    delay(3000);
   } else {
     showText("WiFi Disconnected", "Reconnecting...");
   }

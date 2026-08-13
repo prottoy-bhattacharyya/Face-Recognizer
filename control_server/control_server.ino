@@ -3,18 +3,17 @@
 #include <Servo.h>
 #include <DHT.h>
 
-// Wi-Fi Credentials
 const char* ssid = "Bachelor Family 2.4G";
 const char* password = "passwordnai";
 
-// Web Server on port 80
 ESP8266WebServer server(80);
 
-// Pin Definitions
 #define BLUE_LED_PIN 14  // D5
 #define YLW_LED_PIN 12   // D6
 #define DHT_PIN 4        // D2
 #define DHTTYPE DHT11
+#define DOOR_SERVO_PIN D7
+#define FAN_SERVO_PIN D8
 
 DHT dht(DHT_PIN, DHTTYPE);
 
@@ -24,59 +23,79 @@ Servo fan_servo;
 // Global State Variables
 bool isLightOn = false;
 bool isFanOn = false;
+bool isAutoMode = false; // Default to MANUAL mode
+
+// Non-blocking Gate Control Variables
+bool isGateOpen = false;
+unsigned long gateOpenStartTime = 0;
+const unsigned long GATE_OPEN_DURATION = 5000; // 5 seconds open time
 
 // Auto Temperature Control Settings
-const float TEMP_THRESHOLD = 30.0; // Temperature in °C to turn on fan
+const float TEMP_THRESHOLD = 30.0;
 unsigned long lastSensorReadTime = 0;
-const unsigned long SENSOR_INTERVAL = 3000; // Check sensor every 3 seconds
+const unsigned long SENSOR_INTERVAL = 3000;
 float currentTemp = 0.0;
 float currentHum = 0.0;
 
-// Helper to set fan hardware state
+void setLightState(bool turnOn) {
+  if (turnOn) {
+    digitalWrite(BLUE_LED_PIN, HIGH);
+    digitalWrite(YLW_LED_PIN, LOW);
+    isLightOn = true;
+  } else {
+    digitalWrite(BLUE_LED_PIN, LOW);
+    digitalWrite(YLW_LED_PIN, HIGH);
+    isLightOn = false;
+  }
+}
+
 void setFanState(bool turnOn) {
   if (turnOn) {
-    fan_servo.write(0); // Continuous rotation / active state
+    fan_servo.write(0);
     isFanOn = true;
   } else {
-    fan_servo.write(90); // Stop state for continuous servo
+    fan_servo.write(90);
     isFanOn = false;
   }
 }
 
-// Helper to open/close gate smoothly
-void gateAction(bool openState) {
+void setGateState(bool openState) {
   if (openState) {
-    for (int i = 0; i <= 180; i++) {
-      door_servo.write(i);
-      delay(10);
-    }
+    door_servo.write(180);
+    isGateOpen = true;
+    gateOpenStartTime = millis();
   } else {
-    for (int i = 180; i >= 0; i--) {
-      door_servo.write(i);
-      delay(10);
-    }
+    door_servo.write(0);
+    isGateOpen = false;
   }
 }
 
-// Helper to construct a unified JSON state response
 String getSystemStatusJson(float temp = -999.0, float hum = -999.0) {
+  bool lightState = digitalRead(BLUE_LED_PIN);
   String json = "{";
-  json += "\"light_status\":\"" + String(isLightOn ? "ON" : "OFF") + "\",";
+  json += "\"mode\":\"" + String(isAutoMode ? "AUTO" : "MANUAL") + "\",";
+  json += "\"light_status\":\"" + String(lightState ? "ON" : "OFF") + "\",";
   json += "\"fan_status\":\"" + String(isFanOn ? "ON" : "OFF") + "\",";
+  json += "\"gate_status\":\"" + String(isGateOpen ? "OPEN" : "CLOSED") + "\",";
   json += "\"temp_threshold\":" + String(TEMP_THRESHOLD);
   
-  // Include temperature and humidity if valid values were provided
   if (temp != -999.0 && hum != -999.0) {
     json += ",\"temperature\":" + String(temp);
     json += ",\"humidity\":" + String(hum);
+  }
+  else{
+    json += ",\"temperature\": \"NULL\"";
+    json += ",\"humidity\": \"Null\"";
   }
   
   json += "}";
   return json;
 }
 
-// Automatic Temperature Monitoring Logic
 void checkTemperatureAutoControl() {
+  // Only evaluate auto temperature logic if system is in AUTO mode
+  if (!isAutoMode) return;
+
   float temp = dht.readTemperature();
   float hum = dht.readHumidity();
 
@@ -88,45 +107,62 @@ void checkTemperatureAutoControl() {
   currentTemp = temp;
   currentHum = hum;
 
-  // Auto ON: Temperature rises above threshold
   if (currentTemp >= TEMP_THRESHOLD && !isFanOn) {
-    Serial.println("[AUTO CONTROL] Temp (" + String(currentTemp) + "°C) >= Threshold (" + String(TEMP_THRESHOLD) + "°C). Turning Fan ON.");
+    Serial.println("[AUTO CONTROL] Temp >= Threshold. Fan ON.");
     setFanState(true);
-  } 
-  // Auto OFF: Temperature drops below threshold with 1.0°C hysteresis buffer
-  else if (currentTemp < (TEMP_THRESHOLD - 1.0) && isFanOn) {
-    Serial.println("[AUTO CONTROL] Temp (" + String(currentTemp) + "°C) cooled below Threshold. Turning Fan OFF.");
+  } else if (currentTemp < (TEMP_THRESHOLD - 1.0) && isFanOn) {
+    Serial.println("[AUTO CONTROL] Temp cooled. Fan OFF.");
     setFanState(false);
   }
 }
 
-// Endpoint Handlers
+// Non-blocking Gate Auto-Close Timer
+void checkGateAutoClose() {
+  if (isGateOpen && (millis() - gateOpenStartTime >= GATE_OPEN_DURATION)) {
+    Serial.println("[AUTO GATE] Closing gate...");
+    setGateState(false);
+  }
+}
+
 void handleGateOpen() {
   Serial.println("Received command: Open Gate");
-  gateAction(true);
   
-  // Auto-close gate after 5 seconds
-  delay(5000);
-  gateAction(false);
-  
-  server.send(200, "application/json", "{\"status\":\"success\",\"message\":\"Gate opened and closed\"}");
+  // Open gate and turn on fan + light
+  setGateState(true);
+  setLightState(true);
+  setFanState(true);
+
+  server.send(200, "application/json", getSystemStatusJson(currentTemp, currentHum));
+}
+
+void handleModeControl() {
+  if (server.hasArg("state") || server.hasArg("mode")) {
+    String modeParam = server.hasArg("state") ? server.arg("state") : server.arg("mode");
+    modeParam.toLowerCase();
+
+    if (modeParam == "auto") {
+      isAutoMode = true;
+      Serial.println("[MODE] System set to AUTO");
+      server.send(200, "application/json", getSystemStatusJson(currentTemp, currentHum));
+    } else if (modeParam == "manual") {
+      isAutoMode = false;
+      Serial.println("[MODE] System set to MANUAL");
+      server.send(200, "application/json", getSystemStatusJson(currentTemp, currentHum));
+    } else {
+      server.send(400, "application/json", "{\"status\":\"error\",\"message\":\"Invalid mode. Use 'auto' or 'manual'.\"}");
+    }
+  } else {
+    server.send(400, "application/json", "{\"status\":\"error\",\"message\":\"Missing 'state' query parameter.\"}");
+  }
 }
 
 void handleTurnOnLight() {
-  Serial.println("Received command: Light ON");
-  digitalWrite(BLUE_LED_PIN, HIGH);
-  digitalWrite(YLW_LED_PIN, LOW);
-  isLightOn = true;
-  
+  setLightState(true);
   server.send(200, "application/json", getSystemStatusJson(currentTemp, currentHum));
 }
 
 void handleTurnOffLight() {
-  Serial.println("Received command: Light OFF");
-  digitalWrite(BLUE_LED_PIN, LOW);
-  digitalWrite(YLW_LED_PIN, HIGH);
-  isLightOn = false;
-  
+  setLightState(false);
   server.send(200, "application/json", getSystemStatusJson(currentTemp, currentHum));
 }
 
@@ -135,17 +171,15 @@ void handleFanControl() {
     String state = server.arg("state");
     if (state == "on") {
       setFanState(true);
-      Serial.println("Received command: Fan ON (Manual Override)");
       server.send(200, "application/json", getSystemStatusJson(currentTemp, currentHum));
     } else if (state == "off") {
       setFanState(false);
-      Serial.println("Received command: Fan OFF (Manual Override)");
       server.send(200, "application/json", getSystemStatusJson(currentTemp, currentHum));
     } else {
-      server.send(400, "application/json", "{\"status\":\"error\",\"message\":\"Invalid state parameter. Use 'on' or 'off'.\"}");
+      server.send(400, "application/json", "{\"status\":\"error\",\"message\":\"Invalid state parameter.\"}");
     }
   } else {
-    server.send(400, "application/json", "{\"status\":\"error\",\"message\":\"Missing 'state' query parameter (e.g. ?state=on)\"}");
+    server.send(400, "application/json", "{\"status\":\"error\",\"message\":\"Missing 'state' query parameter.\"}");
   }
 }
 
@@ -160,34 +194,30 @@ void handleSensorData() {
 
   currentTemp = temp;
   currentHum = hum;
-
   server.send(200, "application/json", getSystemStatusJson(currentTemp, currentHum));
 }
 
 void handleGetStatus() {
+  server.sendHeader("Access-Control-Allow-Origin", "*");
   server.send(200, "application/json", getSystemStatusJson(currentTemp, currentHum));
 }
 
 void setup() {
   Serial.begin(115200);
 
-  // Initialize Pins & Servos
   pinMode(BLUE_LED_PIN, OUTPUT);
   pinMode(YLW_LED_PIN, OUTPUT);
   
-  // Default light state (OFF)
-  digitalWrite(BLUE_LED_PIN, LOW);
-  digitalWrite(YLW_LED_PIN, HIGH);
+  door_servo.attach(DOOR_SERVO_PIN);
+  fan_servo.attach(FAN_SERVO_PIN);
   
-  door_servo.attach(D7);
-  fan_servo.attach(D8);
-  
-  // Default fan state (OFF)
+  // Explicitly keep appliances OFF on startup
+  setGateState(false);
   setFanState(false);
+  setLightState(false);
 
   dht.begin();
 
-  // Connect WiFi
   WiFi.begin(ssid, password);
   Serial.print("Connecting to WiFi");
   while (WiFi.status() != WL_CONNECTED) {
@@ -198,8 +228,9 @@ void setup() {
   Serial.print("IP Address: ");
   Serial.println(WiFi.localIP());
 
-  // Define Web Server Routes
+  // Web API Routes
   server.on("/gate_open", handleGateOpen);
+  server.on("/mode", handleModeControl);
   server.on("/turn_on_light", handleTurnOnLight);
   server.on("/turn_off_light", handleTurnOffLight);
   server.on("/fan", handleFanControl);
@@ -213,7 +244,8 @@ void setup() {
 void loop() {
   server.handleClient();
 
-  // Non-blocking timer to periodically read DHT11 and manage automatic fan state
+  checkGateAutoClose();
+
   if (millis() - lastSensorReadTime >= SENSOR_INTERVAL) {
     lastSensorReadTime = millis();
     checkTemperatureAutoControl();

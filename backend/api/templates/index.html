@@ -362,11 +362,13 @@
     </style>
   </head>
   <body>
+    <!-- logout button -->
     <div class="container">
       <div class="header">
         <h1>Face Recognition System</h1>
         <p>Enroll, verify, and manage registered faces via the camera.</p>
         <div class="header-actions">
+          <a class="nav-button" href="{% url 'logout' %}">Logout</a>
           <a class="nav-button" href="{% url 'controls' %}">Go to Controls Page</a>
         </div>
       </div>

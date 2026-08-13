@@ -124,10 +124,14 @@
 
     .badge-on { background: rgba(34, 197, 94, 0.2); color: var(--accent-green); }
     .badge-off { background: rgba(148, 163, 184, 0.2); color: var(--text-sub); }
+    .badge-auto { background: rgba(56, 189, 248, 0.2); color: var(--accent-blue); }
+    .badge-manual { background: rgba(245, 158, 11, 0.2); color: var(--accent-amber); }
+    .badge-open { background: rgba(239, 68, 68, 0.2); color: var(--accent-red); }
+    .badge-closed { background: rgba(34, 197, 94, 0.2); color: var(--accent-green); }
 
     .controls-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
       gap: 12px;
       margin-top: 8px;
     }
@@ -167,12 +171,13 @@
       <h1>IoT Control Center</h1>
       <div class="config-box">
         <label for="apiUrl">ESP8266 IP:</label>
-        <input type="text" id="apiUrl" value="http://192.168.1.250">
+        <input type="text" id="apiUrl" value="{{ control_server_url }}">
       </div>
     </header>
 
-    <!-- Metrics Section -->
+    <!-- Metrics & State Controls Section -->
     <div class="grid">
+      <!-- Temperature Card -->
       <div class="card">
         <div class="card-header">
           <span class="card-title">Temperature</span>
@@ -183,6 +188,7 @@
         </div>
       </div>
 
+      <!-- Humidity Card -->
       <div class="card">
         <div class="card-header">
           <span class="card-title">Humidity</span>
@@ -190,6 +196,19 @@
         <div class="metric-value" id="humVal">-- %</div>
       </div>
 
+      <!-- System Mode Card -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">System Mode</span>
+          <span class="badge badge-auto" id="modeBadge">AUTO</span>
+        </div>
+        <div class="controls-grid">
+          <button class="btn" onclick="sendControl('/mode?state=auto')">AUTO</button>
+          <button class="btn" onclick="sendControl('/mode?state=manual')">MANUAL</button>
+        </div>
+      </div>
+
+      <!-- Light Control Card -->
       <div class="card">
         <div class="card-header">
           <span class="card-title">Light Status</span>
@@ -201,6 +220,7 @@
         </div>
       </div>
 
+      <!-- Fan Control Card -->
       <div class="card">
         <div class="card-header">
           <span class="card-title">Fan Status</span>
@@ -217,6 +237,7 @@
     <div class="card">
       <div class="card-header">
         <span class="card-title">Gate Control</span>
+        <span class="badge badge-closed" id="gateBadge">CLOSED</span>
       </div>
       <button class="btn btn-primary" onclick="sendControl('/gate_open')">Open Gate (5s Auto-Close)</button>
     </div>
@@ -234,32 +255,49 @@
     }
 
     function updateUI(data) {
-      if (data.temperature !== undefined) {
+      // Sensor Data
+      if (data.temperature !== undefined && data.temperature !== -999.0) {
         document.getElementById('tempVal').innerText = data.temperature.toFixed(1) + ' °C';
       }
-      if (data.humidity !== undefined) {
+      if (data.humidity !== undefined && data.humidity !== -999.0) {
         document.getElementById('humVal').innerText = data.humidity.toFixed(1) + ' %';
       }
       if (data.temp_threshold !== undefined) {
         document.getElementById('thresholdVal').innerText = data.temp_threshold;
       }
 
+      // Mode Status Badge
+      if (data.mode) {
+        const badge = document.getElementById('modeBadge');
+        badge.innerText = data.mode;
+        badge.className = 'badge ' + (data.mode === 'AUTO' ? 'badge-auto' : 'badge-manual');
+      }
+
+      // Light Status Badge
       if (data.light_status) {
         const badge = document.getElementById('lightBadge');
         badge.innerText = data.light_status;
         badge.className = 'badge ' + (data.light_status === 'ON' ? 'badge-on' : 'badge-off');
       }
 
+      // Fan Status Badge
       if (data.fan_status) {
         const badge = document.getElementById('fanBadge');
         badge.innerText = data.fan_status;
         badge.className = 'badge ' + (data.fan_status === 'ON' ? 'badge-on' : 'badge-off');
       }
+
+      // Gate Status Badge
+      if (data.gate_status) {
+        const badge = document.getElementById('gateBadge');
+        badge.innerText = data.gate_status;
+        badge.className = 'badge ' + (data.gate_status === 'OPEN' ? 'badge-open' : 'badge-closed');
+      }
     }
 
-    async function fetchSensors() {
+    async function fetchSystemStatus() {
       try {
-        const response = await fetch(`${getBaseUrl()}/sensors`);
+        const response = await fetch(`${getBaseUrl()}/status`);
         if (!response.ok) throw new Error('HTTP Error ' + response.status);
         const data = await response.json();
         updateUI(data);
@@ -282,9 +320,9 @@
       }
     }
 
-    // Auto-refresh sensor data every 3 seconds
-    setInterval(fetchSensors, 3000);
-    fetchSensors();
+    // Auto-refresh full system status every 2 seconds
+    setInterval(fetchSystemStatus, 2000);
+    fetchSystemStatus();
   </script>
 </body>
 </html>

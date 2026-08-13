@@ -1,4 +1,4 @@
-from django.shortcuts import render
+from django.shortcuts import render, redirect
 
 import os
 import cv2
@@ -65,12 +65,18 @@ def clear_deepface_cache():
 # ==========================================
 
 def index(request):
+    if request.session.get('username') is None:
+        return render(request, 'login.html', {'error': 'Please log in to access the application.'})
+    
     return render(request, 'index.html', {
         'camera_stream_url': settings.CAMERA_STREAM_URL,
         'camera_url': settings.CAMERA_URL,
         'control_server_url': settings.CONTROL_SERVER_URL
     })
 def controls(request):
+    if request.session.get('username') is None:
+        return render(request, 'login.html', {'error': 'Please log in to access the application.'})
+
     return render(request, 'controls.html', {
         'camera_url': settings.CAMERA_URL,
         'control_server_url': settings.CONTROL_SERVER_URL
@@ -81,17 +87,15 @@ def login(request):
         username = request.POST.get('username')
         password = request.POST.get('password')
 
-        cursor = connect_db().cursor()
+        connection = connect_db()
+        cursor = connection.cursor()
         cursor.execute("SELECT * FROM users WHERE username = %s AND password = %s", (username, password))
         user = cursor.fetchone()
+        connection.close()
 
         if user:
-            return render(request, 'index.html', {
-                'camera_stream_url': settings.CAMERA_STREAM_URL,
-                'camera_url': settings.CAMERA_URL,
-                'control_server_url': settings.CONTROL_SERVER_URL,
-                'username': username
-            })
+            request.session['username'] = username
+            return redirect('index')
         
         else:
             return render(request, 'login.html', {'error': 'Invalid credentials'})
@@ -102,23 +106,27 @@ def signup(request):
         username = request.POST.get('username')
         password = request.POST.get('password')
 
-        cursor = connect_db().cursor()
+        connection = connect_db()
+        cursor = connection.cursor()
         cursor.execute("SELECT * FROM users WHERE username = %s", (username,))
         existing_user = cursor.fetchone()
 
         if existing_user:
+            connection.close()
             return render(request, 'signup.html', {'error': 'Username already exists'})
 
         cursor.execute("INSERT INTO users (username, password) VALUES (%s, %s)", (username, password))
-        connect_db().commit()
+        connection.commit()
+        connection.close()
 
-        return render(request, 'index.html', {
-                'camera_stream_url': settings.CAMERA_STREAM_URL,
-                'camera_url': settings.CAMERA_URL,
-                'control_server_url': settings.CONTROL_SERVER_URL
-            })
+        request.session['username'] = username
+        return redirect('index')
 
     return render(request, 'signup.html')
+
+def logout(request):
+    request.session.flush()
+    return redirect('login')
 
 @api_view(['POST', 'DELETE'])
 def manage_user_face(request, name):

@@ -2,73 +2,62 @@
 #include <ESP8266HTTPClient.h>
 #include <WiFiClient.h>
 #include "ArduinoJson.h"
-
+#include <Keypad.h>
 #include <SPI.h>
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 
-#include <Servo.h>
-
-Servo door_servo;
-Servo fan_servo;
-
 #define SCREEN_WIDTH 128
 #define SCREEN_HEIGHT 32
-#define OLED_RESET    -1
-#define BLUE_LED_PIN 14
-#define YLW_LED_PIN 12
+#define OLED_RESET -1
 
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
 const char* ssid = "Bachelor Family 2.4G";
 const char* password = "passwordnai";
 
-String server_url = "http://192.168.1.210:8000/";
-String second_esp_url = "http://192.168.1.55/";
+const String server_url = "http://192.168.1.138:8000/";
+const String second_esp_url = "http://192.168.1.55/";
 
-WiFiClient client;
-HTTPClient http;
+const byte ROWS = 4; 
+const byte COLS = 4; 
 
+char keys[ROWS][COLS] = {
+  {'1','2','3','A'},
+  {'4','5','6','B'},
+  {'7','8','9','C'},
+  {'*','0','#','D'}
+};
 
-void triggerSecondESP() {
-  if (WiFi.status() == WL_CONNECTED) {
-    HTTPClient httpSecond;
-    httpSecond.begin(client, second_esp_url + "gate_open");
-    int httpCode = httpSecond.GET();
-    if (httpCode > 0) {
-      Serial.println("Second ESP8266 responded: " + String(httpCode));
-    } else {
-      Serial.println("Error communicating with Second ESP: " + String(httpCode));
-    }
-    httpSecond.end();
-  }
-}
+// Note: Pin 1 (TX) will conflict with Serial.println debugging!
+byte rowPins[ROWS] = {D0, D3, D4, 1}; 
+byte colPins[COLS] = {D5, D6, D7, D8}; 
 
+Keypad keypad = Keypad(makeKeymap(keys), rowPins, colPins, ROWS, COLS);
 
-// Helper function to render 2 lines of text on the 128x32 OLED display
-void showText(String line1, String line2 = "") {
+String inputGatePassword = "";
+const String actualGatePassword = "1234";
+
+void showText(const String& line1, const String& line2 = "") {
   display.clearDisplay();
   display.setTextSize(1);
   display.setTextColor(SSD1306_WHITE);
-  
   display.setCursor(0, 0);
   display.println(line1);
-  
   if (line2.length() > 0) {
     display.setCursor(0, 16);
     display.println(line2);
   }
-  
   display.display();
 }
 
-bool checkRequest(String action, String payload) {
+bool checkRequest(const String& action, const String& payload) {
   JsonDocument doc;
   DeserializationError error = deserializeJson(doc, payload);
 
   if (error) {
-    Serial.print("JSON parsing failed: ");
+    Serial.print(F("JSON parsing failed: "));
     Serial.println(error.c_str());
     showText(action + " Failed", "JSON Parse Error");
     return false;
@@ -77,118 +66,156 @@ bool checkRequest(String action, String payload) {
   String status = doc["status"].as<String>();
 
   if (status == "success") {
-    String message = "";
-    if (doc.containsKey("name")) {
-      message = doc["name"].as<String>();
-    } else if (doc.containsKey("message")) {
-      message = doc["description"].as<String>();
-    } else {
-      message = "Success";
-    }
-
+    String message = doc.containsKey("name") ? doc["name"].as<String>() : 
+                    (doc.containsKey("message") ? doc["message"].as<String>() : "Success");
     Serial.println("[" + action + "] OK: " + message);
     showText(action + ": OK", message);
     return true;
   }
 
-  if (status == "failed") {
-    String errorMsg = "Unknown error";
-    if (doc.containsKey("description")) {
-      errorMsg = doc["description"].as<String>();
-    }
-
-    Serial.println("[" + action + "] Error: " + errorMsg);
-    showText(action + ": FAILED", errorMsg);
-    return false;
-  }
-
+  String errorMsg = doc.containsKey("description") ? doc["description"].as<String>() :
+                    (doc.containsKey("message") ? doc["message"].as<String>() : "Unknown error");
+  Serial.println("[" + action + "] Error: " + errorMsg);
+  showText(action + ": FAILED", errorMsg);
   return false;
 }
 
-void enroll_face(String name) {
-  showText("Enrolling...", name);
+void triggerSecondESP() {
+  if (WiFi.status() != WL_CONNECTED) return;
+
+  WiFiClient clientSecond;
+  HTTPClient httpSecond;
   
-  http.begin(client, server_url + "faces/" + name + "/");
-  http.addHeader("Content-Type", "application/json");
-  int httpPostCode = http.POST("{}");
-
-  if (httpPostCode > 0) {
-    String payload = http.getString();
-    checkRequest("Enroll", payload);
-  } else {
-    showText("Enroll Error", "HTTP Code: " + String(httpPostCode));
-  }
-  http.end();
-}
-
-void verify_face() {
-  showText("Verifying...", "Scanning face");
+  httpSecond.begin(clientSecond, second_esp_url + "gate_open");
+  int httpCode = httpSecond.GET();
   
-  http.begin(client, server_url + "verify/");
-  int httpGetCode = http.GET();
-
-  if (httpGetCode > 0) {
-    String payload = http.getString();
-    if(checkRequest("Verify", payload)){
-      triggerSecondESP();
+  if (httpCode > 0) {
+    String payload = httpSecond.getString();
+    if (checkRequest("Gate Open", payload)) {
+      delay(2000);
+    } else {
+      delay(2000);
     }
   } else {
-    showText("Verify Error", "HTTP Code: " + String(httpGetCode));
+    Serial.println("Controller Error: " + String(httpCode));
+    showText("Controller Error", "Code: " + String(httpCode));
+    delay(2000);
   }
-  http.end();
+  httpSecond.end();
 }
 
-void delete_face(String name) {
-  showText("Deleting...", name);
+bool verify_face() {
+  showText("Verifying...", "Scanning Face");
   
-  http.begin(client, server_url + "faces/" + name + "/");
-  int httpDeleteCode = http.sendRequest("DELETE");
+  WiFiClient clientMain;
+  HTTPClient http;
+  
+  http.begin(clientMain, server_url + "verify/");
+  int httpCode = http.GET();
+  bool success = false;
 
-  if (httpDeleteCode > 0) {
+  if (httpCode > 0) {
     String payload = http.getString();
-    checkRequest("Delete", payload);
+    success = checkRequest("Verify", payload);
   } else {
-    showText("Delete Error", "HTTP Code: " + String(httpDeleteCode));
+    showText("Verify Error", "HTTP Code: " + String(httpCode));
   }
+  
   http.end();
+  return success;
 }
 
-void init_display() {
-  if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
-    Serial.println(F("SSD1306 allocation failed"));
+void updateIdleScreen() {
+  String maskedPIN = "";
+  for (size_t i = 0; i < inputGatePassword.length(); i++) {
+    maskedPIN += "*";
   }
-  showText("System Init", "Starting...");
+  showText("[A] Scan Face", "PIN: " + maskedPIN);
 }
 
 void setup() {
   Serial.begin(115200);
-  init_display();
-  pinMode(BLUE_LED_PIN, OUTPUT);
-  pinMode(YLW_LED_PIN, OUTPUT);
-  door_servo.attach(D5);
-  fan_servo.attach(D6);
 
-  showText("Connecting WiFi", ssid);
+  if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
+    Serial.println(F("SSD1306 allocation failed"));
+  }
+  showText("System Init", "Starting...");
+
   WiFi.begin(ssid, password);
+  showText("Connecting WiFi", ssid);
 
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.print(".");
   }
 
-  Serial.println("\nConnected to WiFi");
-  Serial.println("IP: " + WiFi.localIP().toString());
-  
+  Serial.println("\nWiFi Connected");
   showText("WiFi Connected!", WiFi.localIP().toString());
-  delay(2000);
+  delay(1500);
+
+  updateIdleScreen();
 }
 
 void loop() {
-  if (WiFi.status() == WL_CONNECTED) {
-    verify_face();
-  } else {
+  if (WiFi.status() != WL_CONNECTED) {
     showText("WiFi Disconnected", "Reconnecting...");
+    delay(1000);
+    return;
   }
 
-  delay(5000);
+  char key = keypad.getKey();
+
+  if (key) {
+    if (key == 'A') {
+      // Manual trigger for Face Scan
+      if (verify_face()) {
+        delay(1000);
+        triggerSecondESP();
+      } else {
+        delay(2000);
+      }
+      inputGatePassword = "";
+      updateIdleScreen();
+    } 
+    else if (key == 'C') {
+      // Clear PIN input
+      inputGatePassword = "";
+      updateIdleScreen();
+    } 
+    else if (key == '#' || inputGatePassword.length() == 4) {
+      // Submit or Auto-Submit on 4 digits
+      if (inputGatePassword == actualGatePassword) {
+        showText("Password OK", "Opening Gate...");
+        delay(1000);
+        triggerSecondESP();
+      } else {
+        showText("Access Denied", "Wrong Password");
+        delay(2000);
+      }
+      inputGatePassword = "";
+      updateIdleScreen();
+    } 
+    else if (key >= '0' && key <= '9') {
+      // Append digit
+      if (inputGatePassword.length() < 4) {
+        inputGatePassword += key;
+        updateIdleScreen();
+
+        // Check if 4th digit was just entered
+        if (inputGatePassword.length() == 4) {
+          delay(200);
+          if (inputGatePassword == actualGatePassword) {
+            showText("Password OK", "Opening Gate...");
+            delay(1000);
+            triggerSecondESP();
+          } else {
+            showText("Access Denied", "Wrong Password");
+            delay(2000);
+          }
+          inputGatePassword = "";
+          updateIdleScreen();
+        }
+      }
+    }
+  }
 }

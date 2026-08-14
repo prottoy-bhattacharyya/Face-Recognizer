@@ -66,7 +66,7 @@ def clear_deepface_cache():
 
 def index(request):
     if request.session.get('username') is None:
-        return render(request, 'login.html', {'error': 'Please log in to access the application.'})
+        return redirect('login')
     
     return render(request, 'index.html', {
         'camera_stream_url': settings.CAMERA_STREAM_URL,

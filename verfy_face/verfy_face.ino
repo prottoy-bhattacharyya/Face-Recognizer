@@ -16,8 +16,7 @@ Servo fan_servo;
 #define SCREEN_WIDTH 128
 #define SCREEN_HEIGHT 32
 #define OLED_RESET    -1
-#define BLUE_LED_PIN 14
-#define YLW_LED_PIN 12
+#define SWITCH_PIN D5 
 
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
@@ -161,12 +160,11 @@ void init_display() {
 }
 
 void setup() {
+  pinMode(SWITCH_PIN, INPUT);
+
+
   Serial.begin(115200);
   init_display();
-  pinMode(BLUE_LED_PIN, OUTPUT);
-  pinMode(YLW_LED_PIN, OUTPUT);
-  door_servo.attach(D5);
-  fan_servo.attach(D6);
 
   showText("Connecting WiFi", ssid);
   WiFi.begin(ssid, password);
@@ -185,10 +183,18 @@ void setup() {
 
 void loop() {
   if (WiFi.status() == WL_CONNECTED) {
-    verify_face();
+    bool switch_on = digitalRead(SWITCH_PIN);
+    if(switch_on){
+      verify_face();
+      delay(5000);
+    }
+    else{
+      showText("switch off");
+
+    }
   } else {
     showText("WiFi Disconnected", "Reconnecting...");
   }
 
-  delay(5000);
+  // delay(5000);
 }

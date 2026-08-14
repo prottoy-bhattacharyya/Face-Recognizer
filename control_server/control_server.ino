@@ -129,8 +129,8 @@ void handleGateOpen() {
   
   // Open gate and turn on fan + light
   setGateState(true);
-  setLightState(true);
-  setFanState(true);
+  // setLightState(true);
+  // setFanState(true);
 
   server.send(200, "application/json", getSystemStatusJson(currentTemp, currentHum));
 }

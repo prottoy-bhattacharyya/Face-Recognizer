@@ -24,6 +24,10 @@ Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 const char* ssid = "Bachelor Family 2.4G";
 const char* password = "passwordnai";
 
+// Set your desired passcode here
+const String CORRECT_PIN = "1234";
+String inputPassword = "";
+
 String server_url = "http://192.168.1.138:8000/";
 String second_esp_url = "http://192.168.1.55/";
 
@@ -177,12 +181,10 @@ void setup() {
   delay(100);
   Serial.println(F("Wifi Off"));
 
-
-  // 3. Initialize Wire bus
+  // 2. Initialize Wire bus
   Wire.begin(4, 5); // SDA = D2, SCL = D1
   Wire.setClock(100000);
   delay(100);
-
 
   Wire.beginTransmission(KEYPAD_ADDRESS);
   Wire.write(0xFF);
@@ -195,12 +197,8 @@ void setup() {
   Wire.setClock(100000); // Ensure display init didn't force 400kHz
 
   delay(2000);
-  showText("Ready", "Press A to verify");
 
-
-  delay(1000);
-
-  // 8. Turn WiFi back on and connect
+  // 3. Connect to WiFi
   WiFi.mode(WIFI_STA);
   showText("Connecting WiFi", ssid);
   WiFi.begin(ssid, password);
@@ -215,7 +213,7 @@ void setup() {
   
   showText("WiFi Connected!", WiFi.localIP().toString());
   delay(2000);
-  showText("Ready", "Press A to verify");
+  showText("Ready", "PIN or Press A");
 }
 
 void loop() {
@@ -229,11 +227,42 @@ void loop() {
       }
 
       if (key == 'A') {
+        inputPassword = ""; // Clear buffer
         verify_face();
         delay(2000);
-        showText("Ready", "Press A to verify");
-      } else if (key != 'N' && key != 'F') {
-        showText("Key Pressed:", String(key));
+        showText("Ready", "PIN or Press A");
+      } 
+      else if (key == '#') { // Submit PIN
+        if (inputPassword.length() > 0) {
+          if (inputPassword == CORRECT_PIN) {
+            showText("Access Granted", "Opening Gate...");
+            triggerSecondESP();
+            delay(2000);
+          } else {
+            showText("Access Denied", "Wrong Password!");
+            delay(2000);
+          }
+          inputPassword = "";
+          showText("Ready", "PIN or Press A");
+        }
+      } 
+      else if (key == 'C') { // Clear PIN buffer
+        inputPassword = "";
+        showText("PIN Cleared", "");
+        delay(1000);
+        showText("Ready", "PIN or Press A");
+      } 
+      else if (key != 'N' && key != 'F') { // Digits / Other key entries
+        if (inputPassword.length() < 8) { // Prevent overflow
+          inputPassword += key;
+
+          // Mask password with asterisks on OLED
+          String maskedPin = "";
+          for (size_t i = 0; i < inputPassword.length(); i++) {
+            maskedPin += "* ";
+          }
+          showText("Enter PIN:", maskedPin);
+        }
       }
     }
   } else {

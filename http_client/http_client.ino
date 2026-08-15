@@ -1,13 +1,22 @@
 #include <ESP8266WiFi.h>
 #include <ESP8266HTTPClient.h>
 #include <WiFiClient.h>
+
+// Arduino JSON by Arduino
 #include "ArduinoJson.h"
-#include <Keypad.h>
+
 #include <SPI.h>
 #include <Wire.h>
+
+// Adafruit GFX Lib by adafruit
 #include <Adafruit_GFX.h>
+// Adafruit SSD1306 by adafruit
 #include <Adafruit_SSD1306.h>
 
+// i2c keypad by rob tillart
+#include <Keypad_I2C.h>
+
+#define I2C_ADDRESS 0x27
 #define SCREEN_WIDTH 128
 #define SCREEN_HEIGHT 32
 #define OLED_RESET -1
@@ -23,18 +32,17 @@ const String second_esp_url = "http://192.168.1.55/";
 const byte ROWS = 4; 
 const byte COLS = 4; 
 
-char keys[ROWS][COLS] = {
+char hexaKeys[ROWS][COLS] = {
   {'1','2','3','A'},
   {'4','5','6','B'},
   {'7','8','9','C'},
   {'*','0','#','D'}
 };
 
-// Note: Pin 1 (TX) will conflict with Serial.println debugging!
-byte rowPins[ROWS] = {D0, D3, D4, 1}; 
-byte colPins[COLS] = {D5, D6, D7, D8}; 
+byte rowPins[ROWS] = {0, 1, 2, 3}; 
+byte colPins[COLS] = {4, 5, 6, 7}; 
 
-Keypad keypad = Keypad(makeKeymap(keys), rowPins, colPins, ROWS, COLS);
+Keypad_I2C keypad = Keypad_I2C(makeKeymap(hexaKeys), rowPins, colPins, ROWS, COLS, I2C_ADDRESS);
 
 String inputGatePassword = "";
 const String actualGatePassword = "1234";
@@ -135,6 +143,8 @@ void updateIdleScreen() {
 
 void setup() {
   Serial.begin(115200);
+  Wire.begin(4, 5);
+  keypad.begin();
 
   if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
     Serial.println(F("SSD1306 allocation failed"));

@@ -7,17 +7,18 @@
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
+#include <I2CKeyPad.h>
 
-#include <Servo.h>
-
-Servo door_servo;
-Servo fan_servo;
-
+#define KEYPAD_ADDRESS 0x20
+#define LED_ADDRESSS 0x3C
 #define SCREEN_WIDTH 128
 #define SCREEN_HEIGHT 32
 #define OLED_RESET    -1
-#define SWITCH_PIN D5 
 
+// Rob Tillaart's I2CKeyPad map: 16 keys + 'N' (NoKey) + 'F' (Fail) + null terminator
+char keymap[19] = "123A456B789C*0#DNF";
+
+I2CKeyPad keypad(KEYPAD_ADDRESS);
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
 const char* ssid = "Bachelor Family 2.4G";
@@ -28,7 +29,6 @@ String second_esp_url = "http://192.168.1.55/";
 
 WiFiClient client;
 HTTPClient http;
-
 
 void triggerSecondESP() {
   if (WiFi.status() == WL_CONNECTED) {
@@ -44,8 +44,7 @@ void triggerSecondESP() {
   }
 }
 
-
-// Helper function to render 2 lines of text on the 128x32 OLED display
+// Helper function to render 2 lines of text on the OLED display
 void showText(String line1, String line2 = "") {
   display.clearDisplay();
   display.setTextSize(1);
@@ -80,7 +79,7 @@ bool checkRequest(String action, String payload) {
     if (doc.containsKey("name")) {
       message = doc["name"].as<String>();
     } else if (doc.containsKey("message")) {
-      message = doc["description"].as<String>();
+      message = doc["message"].as<String>();
     } else {
       message = "Success";
     }
@@ -128,7 +127,7 @@ void verify_face() {
 
   if (httpGetCode > 0) {
     String payload = http.getString();
-    if(checkRequest("Verify", payload)){
+    if (checkRequest("Verify", payload)) {
       triggerSecondESP();
     }
   } else {
@@ -153,19 +152,56 @@ void delete_face(String name) {
 }
 
 void init_display() {
-  if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
+  if (!display.begin(SSD1306_SWITCHCAPVCC, LED_ADDRESSS)) {
     Serial.println(F("SSD1306 allocation failed"));
   }
   showText("System Init", "Starting...");
 }
 
+void init_keypad(){
+  if (!keypad.begin()) {
+    Serial.println("ERROR: Could not find I2C Keypad!");
+    showText("Keypad Error", "Check 0x20");
+  } else {
+    Serial.println("SUCCESS: I2C Keypad found at " + String(KEYPAD_ADDRESS));
+    keypad.loadKeyMap(keymap);
+  }
+}
+
 void setup() {
-  pinMode(SWITCH_PIN, INPUT);
-
-
   Serial.begin(115200);
-  init_display();
+  delay(500);
 
+  // 1. Disable WiFi temporarily to prevent current spikes during I2C setup
+  WiFi.mode(WIFI_OFF);
+  delay(100);
+  Serial.println(F("Wifi Off"));
+
+
+  // 3. Initialize Wire bus
+  Wire.begin(4, 5); // SDA = D2, SCL = D1
+  Wire.setClock(100000);
+  delay(100);
+
+
+  Wire.beginTransmission(KEYPAD_ADDRESS);
+  Wire.write(0xFF);
+  Wire.endTransmission();
+  delay(100);
+
+  init_keypad();
+
+  init_display();
+  Wire.setClock(100000); // Ensure display init didn't force 400kHz
+
+  delay(2000);
+  showText("Ready", "Press A to verify");
+
+
+  delay(1000);
+
+  // 8. Turn WiFi back on and connect
+  WiFi.mode(WIFI_STA);
   showText("Connecting WiFi", ssid);
   WiFi.begin(ssid, password);
 
@@ -179,22 +215,29 @@ void setup() {
   
   showText("WiFi Connected!", WiFi.localIP().toString());
   delay(2000);
+  showText("Ready", "Press A to verify");
 }
 
 void loop() {
   if (WiFi.status() == WL_CONNECTED) {
-    bool switch_on = digitalRead(SWITCH_PIN);
-    if(switch_on){
-      verify_face();
-      delay(5000);
-    }
-    else{
-      showText("switch off");
+    if (keypad.isPressed()) {
+      char key = keypad.getChar();
 
+      // Wait for key release to prevent repeated triggers
+      while (keypad.isPressed()) {
+        yield();
+      }
+
+      if (key == 'A') {
+        verify_face();
+        delay(2000);
+        showText("Ready", "Press A to verify");
+      } else if (key != 'N' && key != 'F') {
+        showText("Key Pressed:", String(key));
+      }
     }
   } else {
     showText("WiFi Disconnected", "Reconnecting...");
+    delay(1000);
   }
-
-  // delay(5000);
 }

@@ -15,7 +15,6 @@
 #define SCREEN_HEIGHT 32
 #define OLED_RESET    -1
 
-// Rob Tillaart's I2CKeyPad map: 16 keys + 'N' (NoKey) + 'F' (Fail) + null terminator
 char keymap[19] = "123A456B789C*0#DNF";
 
 I2CKeyPad keypad(KEYPAD_ADDRESS);
@@ -24,9 +23,9 @@ Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 const char* ssid = "Bachelor Family 2.4G";
 const char* password = "passwordnai";
 
-// Set your desired passcode here
-const String CORRECT_PIN = "1234";
+String CORRECT_PIN = "1234";
 String inputPassword = "";
+String sessionCookie = ""; // Stores Django sessionid cookie
 
 String server_url = "http://192.168.1.138:8000/";
 String second_esp_url = "http://192.168.1.55/";
@@ -48,7 +47,6 @@ void triggerSecondESP() {
   }
 }
 
-// Helper function to render 2 lines of text on the OLED display
 void showText(String line1, String line2 = "") {
   display.clearDisplay();
   display.setTextSize(1);
@@ -107,13 +105,71 @@ bool checkRequest(String action, String payload) {
   return false;
 }
 
+void login() {
+  if (WiFi.status() == WL_CONNECTED) {
+    http.begin(client, server_url + "login/");
+    http.addHeader("Content-Type", "application/json");
+
+    // Tell HTTPClient to collect Set-Cookie from server headers
+    const char* headerKeys[] = {"Set-Cookie"};
+    http.collectHeaders(headerKeys, 1);
+
+    String loginPayload = "{\"username\": \"admin\", \"password\": \"admin123\"}";
+    int httpCode = http.POST(loginPayload);
+
+    if (httpCode > 0) {
+      if (http.hasHeader("Set-Cookie")) {
+        sessionCookie = http.header("Set-Cookie");
+        Serial.println("Session cookie saved successfully!");
+      }
+      Serial.println("Login Response Code: " + String(httpCode));
+    } else {
+      Serial.println("Login failed: " + http.errorToString(httpCode));
+    }
+    http.end();
+  }
+}
+
+void syncPassword() {
+  if (WiFi.status() == WL_CONNECTED) {
+    // Define target username
+    String targetUser = "admin"; 
+
+    // Append query parameter to the URL
+    String url = server_url + "get_updated_password/?username=" + targetUser;
+    http.begin(client, url);
+
+    // Pass session cookie if Django session authentication is required
+    if (sessionCookie.length() > 0) {
+      http.addHeader("Cookie", sessionCookie);
+    }
+
+    int httpCode = http.GET();
+
+    if (httpCode == 200) {
+      String payload = http.getString();
+      JsonDocument doc;
+      
+      if (deserializeJson(doc, payload) == DeserializationError::Ok) {
+        if (doc["status"] == "success") {
+          CORRECT_PIN = doc["password"].as<String>();
+          Serial.println("Updated local PIN to: " + CORRECT_PIN);
+        }
+      }
+    } else {
+      Serial.println("syncPassword HTTP Error Code: " + String(httpCode));
+    }
+    http.end();
+  }
+}
+
 void enroll_face(String name) {
   showText("Enrolling...", name);
-  
   http.begin(client, server_url + "faces/" + name + "/");
   http.addHeader("Content-Type", "application/json");
-  int httpPostCode = http.POST("{}");
+  if (sessionCookie.length() > 0) http.addHeader("Cookie", sessionCookie);
 
+  int httpPostCode = http.POST("{}");
   if (httpPostCode > 0) {
     String payload = http.getString();
     checkRequest("Enroll", payload);
@@ -125,10 +181,10 @@ void enroll_face(String name) {
 
 void verify_face() {
   showText("Verifying...", "Scanning face");
-  
   http.begin(client, server_url + "verify/");
-  int httpGetCode = http.GET();
+  if (sessionCookie.length() > 0) http.addHeader("Cookie", sessionCookie);
 
+  int httpGetCode = http.GET();
   if (httpGetCode > 0) {
     String payload = http.getString();
     if (checkRequest("Verify", payload)) {
@@ -136,21 +192,6 @@ void verify_face() {
     }
   } else {
     showText("Verify Error", "HTTP Code: " + String(httpGetCode));
-  }
-  http.end();
-}
-
-void delete_face(String name) {
-  showText("Deleting...", name);
-  
-  http.begin(client, server_url + "faces/" + name + "/");
-  int httpDeleteCode = http.sendRequest("DELETE");
-
-  if (httpDeleteCode > 0) {
-    String payload = http.getString();
-    checkRequest("Delete", payload);
-  } else {
-    showText("Delete Error", "HTTP Code: " + String(httpDeleteCode));
   }
   http.end();
 }
@@ -176,12 +217,9 @@ void setup() {
   Serial.begin(115200);
   delay(500);
 
-  // 1. Disable WiFi temporarily to prevent current spikes during I2C setup
   WiFi.mode(WIFI_OFF);
   delay(100);
-  Serial.println(F("Wifi Off"));
 
-  // 2. Initialize Wire bus
   Wire.begin(4, 5); // SDA = D2, SCL = D1
   Wire.setClock(100000);
   delay(100);
@@ -192,13 +230,11 @@ void setup() {
   delay(100);
 
   init_keypad();
-
   init_display();
-  Wire.setClock(100000); // Ensure display init didn't force 400kHz
+  Wire.setClock(100000);
 
   delay(2000);
 
-  // 3. Connect to WiFi
   WiFi.mode(WIFI_STA);
   showText("Connecting WiFi", ssid);
   WiFi.begin(ssid, password);
@@ -212,7 +248,12 @@ void setup() {
   Serial.println("IP: " + WiFi.localIP().toString());
   
   showText("WiFi Connected!", WiFi.localIP().toString());
-  delay(2000);
+  delay(1000);
+  
+  // Authenticate and fetch initial PIN state
+  login();
+  syncPassword();
+  
   showText("Ready", "PIN or Press A");
 }
 
@@ -221,18 +262,19 @@ void loop() {
     if (keypad.isPressed()) {
       char key = keypad.getChar();
 
-      // Wait for key release to prevent repeated triggers
       while (keypad.isPressed()) {
         yield();
       }
 
       if (key == 'A') {
-        inputPassword = ""; // Clear buffer
+        inputPassword = "";
         verify_face();
         delay(2000);
         showText("Ready", "PIN or Press A");
       } 
-      else if (key == '#') { // Submit PIN
+      else if (key == '#') {
+        syncPassword(); // Fetch latest password state from Django
+        
         if (inputPassword.length() > 0) {
           if (inputPassword == CORRECT_PIN) {
             showText("Access Granted", "Opening Gate...");
@@ -246,17 +288,16 @@ void loop() {
           showText("Ready", "PIN or Press A");
         }
       } 
-      else if (key == 'C') { // Clear PIN buffer
+      else if (key == 'C') {
         inputPassword = "";
         showText("PIN Cleared", "");
         delay(1000);
         showText("Ready", "PIN or Press A");
       } 
-      else if (key != 'N' && key != 'F') { // Digits / Other key entries
-        if (inputPassword.length() < 8) { // Prevent overflow
+      else if (key != 'N' && key != 'F') {
+        if (inputPassword.length() < 8) {
           inputPassword += key;
 
-          // Mask password with asterisks on OLED
           String maskedPin = "";
           for (size_t i = 0; i < inputPassword.length(); i++) {
             maskedPin += "* ";

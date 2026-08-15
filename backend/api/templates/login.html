@@ -14,6 +14,12 @@
             --text-muted: #64748b;
             --border-color: #cbd5e1;
             --focus-ring: rgba(37, 99, 235, 0.15);
+            --error-bg: #fee2e2;
+            --error-border: #fca5a5;
+            --error-text: #991b1b;
+            --success-color: #10b981;
+            --warning-color: #f59e0b;
+            --danger-color: #ef4444;
         }
 
         * {
@@ -198,9 +204,7 @@
             <button type="submit">Sign In</button>
         </form>
 
-        <div class="login-footer">
-            <p>Don't have an account? <a href="{% url 'signup' %}">Sign Up</a></p>
-        </div>
+        
     </div>
 
     <script>

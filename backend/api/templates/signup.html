@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Create Your Account</title>
+    <title>Add user</title>
     <style>
         :root {
             --primary-color: #2563eb;
@@ -198,8 +198,8 @@
 <body>
     <div class="signup-container">
         <div class="signup-header">
-            <h1>Create Account</h1>
-            <p>Get started by creating your new account.</p>
+            <h1>Add User</h1>
+            <p>Get started by adding a new user.</p>
         </div>
 
         {% if error %}
@@ -248,12 +248,9 @@
                 </div>
             </div>
 
-            <button type="submit">Sign Up</button>
+            <button type="submit">Add User</button>
         </form>
 
-        <div class="signup-footer">
-            <p>Already have an account? <a href="{% url 'login' %}">Login</a></p>
-        </div>
     </div>
 
     <script>

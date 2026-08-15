@@ -1,5 +1,5 @@
 from django.shortcuts import render, redirect
-
+from django.views.decorators.csrf import csrf_exempt
 import os
 import cv2
 import shutil
@@ -71,7 +71,8 @@ def index(request):
     return render(request, 'index.html', {
         'camera_stream_url': settings.CAMERA_STREAM_URL,
         'camera_url': settings.CAMERA_URL,
-        'control_server_url': settings.CONTROL_SERVER_URL
+        'control_server_url': settings.CONTROL_SERVER_URL,
+        'username': request.session.get('username')
     })
 def controls(request):
     if request.session.get('username') is None:
@@ -82,6 +83,7 @@ def controls(request):
         'control_server_url': settings.CONTROL_SERVER_URL
     })
 
+@csrf_exempt
 def login(request):
     if request.method == "POST":
         username = request.POST.get('username')
@@ -127,6 +129,56 @@ def signup(request):
 def logout(request):
     request.session.flush()
     return redirect('login')
+
+@api_view(['GET'])
+def get_updated_password(request):
+    if request.method == "GET":
+        username = request.GET.get('username')
+        connection = connect_db()
+        cursor = connection.cursor()
+        cursor.execute("SELECT gate_password FROM users WHERE username = %s", (username,))
+        config = cursor.fetchone()
+        connection.close()
+
+        if not config:
+            return Response({
+                "status": "failed", 
+                "description": "User not found"
+            }, status=404)
+        
+        # Access by column key if dict, fallback to index 0 if tuple
+        gate_password = config.get('gate_password') if isinstance(config, dict) else config[0]
+        
+        print(f"Retrieved gate password for user {username}: {gate_password}")
+        return Response({
+            "status": "success",
+            "password": gate_password,
+            "message": "Password retrieved successfully"
+        })
+    
+    return Response({
+        "status": "failed", 
+        "description": "GET method required"
+    }, status=405)
+
+@api_view(['POST'])
+def update_password(request):
+    if request.method == "POST":
+        new_password = request.POST.get('new_password')
+        connection = connect_db()
+        cursor = connection.cursor()
+        cursor.execute("UPDATE users SET gate_password = %s WHERE username = %s", (new_password, request.session.get('username')))
+        connection.commit()
+        connection.close()
+        return Response({
+            "status": "success",
+            "message": "Password updated successfully"
+        })
+    
+    return Response({
+        "status": "failed", 
+        "description": "POST method required"
+        }, status=405)
 
 @api_view(['POST', 'DELETE'])
 def manage_user_face(request, name):

@@ -55,8 +55,9 @@ class ApiConfig(AppConfig):
             CREATE TABLE IF NOT EXISTS users (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 username VARCHAR(255) UNIQUE NOT NULL,
-                password VARCHAR(255) NOT NULL
-            )
+                password VARCHAR(255) NOT NULL,
+                gate_password VARCHAR(255) NOT NULL DEFAULT '1234'
+            );
         """)
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS face_database (
@@ -64,12 +65,28 @@ class ApiConfig(AppConfig):
                 username VARCHAR(255) NOT NULL,
                 image_path VARCHAR(255) NOT NULL,
                 FOREIGN KEY (username) REFERENCES users(username)
-            )
+            );
         """)
         connect_db().commit()
         print(
             "Database tables created successfully"
         )
+    def create_default_user(self):
+        connection = connect_db()
+        cursor = connection.cursor()
+        cursor.execute("SELECT * FROM users WHERE username = %s", ('admin',))
+        existing_user = cursor.fetchone()
+
+        if not existing_user:
+            cursor.execute(
+                "INSERT INTO users (username, password, gate_password) VALUES (%s, %s, %s)",
+                ('admin', 'admin123', '1234'),
+            )
+            connection.commit()
+            print("Default user 'admin' created with password 'admin123'.")
+        else:
+            print("Default user 'admin' already exists.")
+        connection.close()
 
     def ready(self):
         os.makedirs("models", exist_ok=True)
@@ -77,3 +94,4 @@ class ApiConfig(AppConfig):
         self.test_camera()
         self.test_yolo_model()
         self.create_tables()
+        self.create_default_user()

@@ -1,0 +1,23 @@
+<resources>
+    <string name="app_name">Home Auto</string>
+    <string name="loading">Loading…</string>
+    <string name="loading_message">Connecting to server…</string>
+
+    <string name="setup_subtitle">Enter your server\'s IP address and port to connect.</string>
+    <string name="setup_ip_hint">Server IP or hostname</string>
+    <string name="setup_port_hint">Port</string>
+    <string name="setup_port_default">8000</string>
+    <string name="setup_connect_button">Connect</string>
+    <string name="saved_connecting">Saved. Connecting…</string>
+
+    <string name="error_ip_empty">Enter the server IP or hostname</string>
+    <string name="error_port_invalid">Enter a valid port (1–65535)</string>
+
+    <string name="web_error_title">Cannot reach server</string>
+    <string name="web_error_message">Could not connect to %1$s.\n\nCheck that the server is running and that the IP address and port are correct.</string>
+    <string name="web_error_title_timeout">Server is not responding</string>
+    <string name="web_error_message_timeout">The server at %1$s did not respond in time.\n\nMake sure it is powered on and try again.</string>
+    <string name="action_retry">Retry</string>
+    <string name="action_refresh">Refresh</string>
+    <string name="action_change_server">Change Server</string>
+</resources>

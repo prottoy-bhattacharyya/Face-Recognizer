@@ -104,6 +104,7 @@ def login(request):
     return render(request, 'login.html')
 
 def signup(request):
+
     if request.method == "POST":
         username = request.POST.get('username')
         password = request.POST.get('password')
@@ -163,6 +164,12 @@ def get_updated_password(request):
 
 @api_view(['POST'])
 def update_password(request):
+    if request.session.get('username') is None or request.session.get('username') != 'admin':
+        return Response({
+            "status": "failed",
+            "description": "User not authenticated"
+        }, status=401)
+    
     if request.method == "POST":
         new_password = request.POST.get('new_password')
         connection = connect_db()
@@ -182,6 +189,12 @@ def update_password(request):
 
 @api_view(['POST', 'DELETE'])
 def manage_user_face(request, name):
+    if request.session.get('username') is None or request.session.get('username') != 'admin':
+        return Response({
+            "status": "failed",
+            "description": "User not authenticated"
+        }, status=401)
+    
     user_folder = os.path.join(DB_PATH, name)
 
     # POST /faces/{name} : Enroll a face
@@ -222,6 +235,13 @@ def manage_user_face(request, name):
 @api_view(['DELETE'])
 def reset_database(request):
     # DELETE /faces : Delete all faces
+
+    if request.session.get('username') is None or request.session.get('username') != 'admin':
+        return Response({
+            "status": "failed",
+            "description": "User not authenticated"
+        }, status=401)
+    
     if os.path.exists(DB_PATH):
         shutil.rmtree(DB_PATH)
     os.makedirs(DB_PATH, exist_ok=True)

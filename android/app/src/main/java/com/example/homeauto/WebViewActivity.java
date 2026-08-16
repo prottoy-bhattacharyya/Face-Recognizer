@@ -25,9 +25,11 @@ import android.widget.TextView;
 import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.content.ContextCompat;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import com.example.homeauto.data.ServerConfig;
 import com.example.homeauto.data.ServerConfigDbHelper;
@@ -48,10 +50,10 @@ public class WebViewActivity extends AppCompatActivity {
     private TextView errorTitle;
     private TextView errorMessage;
     private Button topChangeServerButton;
+    private SwipeRefreshLayout swipeRefresh;
     private String homeUrl;
 
     private int loadError;
-    private boolean connectedOnce;
 
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private final Runnable showLoadingRunnable = new Runnable() {
@@ -92,6 +94,12 @@ public class WebViewActivity extends AppCompatActivity {
         Button retryButton = findViewById(R.id.retry_button);
         Button changeServerButton = findViewById(R.id.change_server_button);
         topChangeServerButton = findViewById(R.id.top_change_server_button);
+        swipeRefresh = findViewById(R.id.swipe_refresh);
+
+        swipeRefresh.setColorSchemeColors(ContextCompat.getColor(this, R.color.primary_blue));
+        swipeRefresh.setOnRefreshListener(this::refreshPage);
+        swipeRefresh.setOnChildScrollUpCallback(
+                (parent, child) -> webView.canScrollVertically(-1));
 
         WebSettings settings = webView.getSettings();
         settings.setJavaScriptEnabled(true);
@@ -109,9 +117,6 @@ public class WebViewActivity extends AppCompatActivity {
                 mainHandler.postDelayed(loadTimeoutRunnable, LOAD_TIMEOUT_MS);
                 mainHandler.postDelayed(showLoadingRunnable, LOADING_DELAY_MS);
                 progressBar.setVisibility(View.VISIBLE);
-                if (!connectedOnce) {
-                    topChangeServerButton.setVisibility(View.VISIBLE);
-                }
             }
 
             @Override
@@ -120,9 +125,8 @@ public class WebViewActivity extends AppCompatActivity {
                 mainHandler.removeCallbacks(showLoadingRunnable);
                 hideLoading();
                 progressBar.setVisibility(View.GONE);
+                swipeRefresh.setRefreshing(false);
                 if (loadError == ERROR_NONE) {
-                    connectedOnce = true;
-                    topChangeServerButton.setVisibility(View.GONE);
                     showError(false);
                 }
             }
@@ -209,6 +213,14 @@ public class WebViewActivity extends AppCompatActivity {
         }
     }
 
+    private void refreshPage() {
+        if (TextUtils.isEmpty(webView.getUrl())) {
+            webView.loadUrl(homeUrl);
+        } else {
+            webView.reload();
+        }
+    }
+
     private void clearStoredConfig() {
         new ServerConfigDbHelper(this).clearConfig();
     }
@@ -231,7 +243,7 @@ public class WebViewActivity extends AppCompatActivity {
         if (show) {
             mainHandler.removeCallbacks(showLoadingRunnable);
             hideLoading();
-            topChangeServerButton.setVisibility(View.GONE);
+            swipeRefresh.setRefreshing(false);
             if (loadError == ERROR_TIMEOUT) {
                 errorTitle.setText(R.string.web_error_title_timeout);
                 errorMessage.setText(getString(R.string.web_error_message_timeout, homeUrl));

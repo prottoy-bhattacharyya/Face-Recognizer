@@ -46,6 +46,8 @@
       align-items: center;
       padding-bottom: 12px;
       border-bottom: 1px solid var(--border-color);
+      flex-wrap: wrap;
+      gap: 12px;
     }
 
     h1 {
@@ -161,6 +163,30 @@
       font-size: 0.85rem;
       color: var(--text-sub);
       text-align: right;
+    }
+
+    @media (max-width: 480px) {
+      body {
+        padding: 16px;
+      }
+
+      h1 {
+        font-size: 1.2rem;
+      }
+
+      .config-box {
+        width: 100%;
+      }
+
+      .config-box input {
+        flex: 1;
+        min-width: 0;
+        width: auto;
+      }
+
+      .controls-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
     }
   </style>
 </head>

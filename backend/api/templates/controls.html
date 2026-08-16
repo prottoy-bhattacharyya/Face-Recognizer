@@ -6,35 +6,45 @@
   <title>Smart Room & Gate Dashboard</title>
   <style>
     :root {
-      --bg-color: #0f172a;
-      --card-bg: #1e293b;
-      --text-main: #f8fafc;
-      --text-sub: #94a3b8;
-      --accent-blue: #38bdf8;
-      --accent-green: #22c55e;
-      --accent-amber: #f59e0b;
-      --accent-red: #ef4444;
-      --border-color: #334155;
+      --bg: #0b0f1a;
+      --bg-radial: radial-gradient(circle at 20% -10%, #1b2540 0%, #0b0f1a 45%);
+      --card-bg: #131a2b;
+      --text-main: #eef1f8;
+      --text-sub: #8b95ad;
+      --muted-2: #6b7690;
+      --border-color: #232d45;
+      --border-soft: #1b2338;
+      --accent-blue: #5b7cfa;
+      --accent-blue-hover: #4a68e0;
+      --accent-blue-soft: rgba(91, 124, 250, 0.14);
+      --accent-green: #2fd480;
+      --accent-amber: #f5a623;
+      --accent-red: #f2495c;
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.24), 0 8px 24px -8px rgba(0, 0, 0, 0.5);
+      --radius-lg: 16px;
+      --radius-md: 10px;
     }
 
     * {
       box-sizing: border-box;
       margin: 0;
       padding: 0;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     }
 
     body {
-      background-color: var(--bg-color);
+      background-color: var(--bg);
+      background-image: var(--bg-radial);
       color: var(--text-main);
-      padding: 24px;
+      padding: 32px 20px 64px;
       display: flex;
       justify-content: center;
+      -webkit-font-smoothing: antialiased;
     }
 
     .container {
       width: 100%;
-      max-width: 900px;
+      max-width: 960px;
       display: flex;
       flex-direction: column;
       gap: 20px;
@@ -44,15 +54,45 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding-bottom: 12px;
-      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--border-soft);
       flex-wrap: wrap;
+      gap: 14px;
+    }
+
+    .header-title {
+      display: flex;
+      align-items: center;
       gap: 12px;
     }
 
+    .header-icon {
+      width: 40px;
+      height: 40px;
+      flex-shrink: 0;
+      border-radius: 10px;
+      background: linear-gradient(135deg, var(--accent-blue) 0%, #8b6bfa 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .header-icon svg {
+      width: 20px;
+      height: 20px;
+      color: #fff;
+    }
+
     h1 {
-      font-size: 1.5rem;
-      font-weight: 600;
+      font-size: 1.4rem;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+    }
+
+    header p.subtitle {
+      font-size: 0.82rem;
+      color: var(--text-sub);
+      margin-top: 2px;
     }
 
     .config-box {
@@ -60,24 +100,39 @@
       align-items: center;
       gap: 10px;
       background: var(--card-bg);
-      padding: 8px 14px;
-      border-radius: 8px;
+      padding: 10px 14px;
+      border-radius: var(--radius-md);
       border: 1px solid var(--border-color);
     }
 
     .config-box label {
-      font-size: 0.85rem;
+      font-size: 0.8rem;
       color: var(--text-sub);
+      font-weight: 600;
+      white-space: nowrap;
     }
 
     .config-box input {
       background: transparent;
       border: none;
       color: var(--text-main);
-      font-family: monospace;
-      font-size: 0.9rem;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.88rem;
       outline: none;
       width: 180px;
+    }
+
+    .config-box input::placeholder {
+      color: var(--muted-2);
+    }
+
+    .section-title {
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted-2);
+      font-weight: 700;
+      margin-top: 4px;
     }
 
     .grid {
@@ -89,7 +144,8 @@
     .card {
       background-color: var(--card-bg);
       border: 1px solid var(--border-color);
-      border-radius: 12px;
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow);
       padding: 20px;
       display: flex;
       flex-direction: column;
@@ -101,73 +157,88 @@
       justify-content: space-between;
       align-items: center;
       margin-bottom: 12px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border-soft);
     }
 
     .card-title {
-      font-size: 0.9rem;
+      font-size: 0.82rem;
       color: var(--text-sub);
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
+      font-weight: 600;
     }
 
     .metric-value {
-      font-size: 2.2rem;
+      font-size: 2.1rem;
       font-weight: 700;
-      margin-top: 4px;
+      letter-spacing: -0.02em;
+      margin-top: 2px;
+    }
+
+    .metric-sub {
+      font-size: 0.8rem;
+      color: var(--text-sub);
+      margin-top: 10px;
+    }
+
+    .metric-sub span {
+      color: var(--text-main);
+      font-weight: 600;
     }
 
     .badge {
-      padding: 4px 10px;
-      border-radius: 20px;
-      font-size: 0.75rem;
-      font-weight: 600;
+      padding: 5px 11px;
+      border-radius: 999px;
+      font-size: 0.72rem;
+      font-weight: 700;
       text-transform: uppercase;
+      letter-spacing: 0.03em;
     }
 
-    .badge-on { background: rgba(34, 197, 94, 0.2); color: var(--accent-green); }
-    .badge-off { background: rgba(148, 163, 184, 0.2); color: var(--text-sub); }
-    .badge-auto { background: rgba(56, 189, 248, 0.2); color: var(--accent-blue); }
-    .badge-manual { background: rgba(245, 158, 11, 0.2); color: var(--accent-amber); }
-    .badge-open { background: rgba(239, 68, 68, 0.2); color: var(--accent-red); }
-    .badge-closed { background: rgba(34, 197, 94, 0.2); color: var(--accent-green); }
+    .badge-on { background: rgba(47, 212, 128, 0.14); color: var(--accent-green); }
+    .badge-off { background: rgba(139, 149, 173, 0.14); color: var(--text-sub); }
+    .badge-auto { background: rgba(91, 124, 250, 0.14); color: var(--accent-blue); }
+    .badge-manual { background: rgba(245, 166, 35, 0.14); color: var(--accent-amber); }
+    .badge-open { background: rgba(242, 73, 92, 0.14); color: var(--accent-red); }
+    .badge-closed { background: rgba(47, 212, 128, 0.14); color: var(--accent-green); }
 
     .controls-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
-      gap: 12px;
+      gap: 10px;
       margin-top: 8px;
     }
 
     .btn {
-      padding: 12px 16px;
-      border-radius: 8px;
+      padding: 11px 16px;
+      border-radius: var(--radius-md);
       border: 1px solid var(--border-color);
-      background-color: #273549;
+      background-color: #0d1220;
       color: var(--text-main);
-      font-size: 0.95rem;
+      font-size: 0.88rem;
       font-weight: 600;
       cursor: pointer;
-      transition: all 0.2s ease;
+      transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.05s ease;
       display: flex;
       justify-content: center;
       align-items: center;
       gap: 8px;
     }
 
-    .btn:hover { background-color: #334155; }
+    .btn:hover { background-color: var(--border-soft); border-color: var(--accent-blue); }
     .btn:active { transform: scale(0.98); }
-    .btn-primary { background-color: #0284c7; border-color: #0369a1; }
-    .btn-primary:hover { background-color: #0369a1; }
+    .btn-primary { background-color: var(--accent-blue); border-color: var(--accent-blue); color: #fff; }
+    .btn-primary:hover { background-color: var(--accent-blue-hover); border-color: var(--accent-blue-hover); }
 
     .status-bar {
-      font-size: 0.85rem;
+      font-size: 0.82rem;
       color: var(--text-sub);
       text-align: right;
+      padding-top: 4px;
     }
 
     @media (max-width: 480px) {
       body {
-        padding: 16px;
+        padding: 20px 14px 48px;
       }
 
       h1 {
@@ -194,14 +265,25 @@
 
   <div class="container">
     <header>
-      <h1>IoT Control Center</h1>
+      <div class="header-title">
+        <div class="header-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23-.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0112 20.25a48.25 48.25 0 01-8.135-.687c-1.718-.293-2.3-2.379-1.067-3.61L5 14.5" />
+          </svg>
+        </div>
+        <div>
+          <h1>IoT Control Center</h1>
+          <p class="subtitle">Smart room & gate management</p>
+        </div>
+      </div>
       <div class="config-box">
-        <label for="apiUrl">ESP8266 IP:</label>
+        <label for="apiUrl">ESP8266 IP</label>
         <input type="text" id="apiUrl" value="{{ control_server_url }}">
       </div>
     </header>
 
     <!-- Metrics & State Controls Section -->
+    <div class="section-title">Environment</div>
     <div class="grid">
       <!-- Temperature Card -->
       <div class="card">
@@ -209,7 +291,7 @@
           <span class="card-title">Temperature</span>
         </div>
         <div class="metric-value" id="tempVal">-- °C</div>
-        <div style="font-size: 0.8rem; color: var(--text-sub); margin-top: 8px;">
+        <div class="metric-sub">
           Auto-Fan Threshold: <span id="thresholdVal">30</span>°C
         </div>
       </div>
@@ -260,6 +342,7 @@
     </div>
 
     <!-- Gate Trigger Section -->
+    <div class="section-title">Access</div>
     <div class="card">
       <div class="card-header">
         <span class="card-title">Gate Control</span>

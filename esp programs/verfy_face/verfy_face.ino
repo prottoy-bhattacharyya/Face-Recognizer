@@ -20,15 +20,17 @@ char keymap[19] = "123A456B789C*0#DNF";
 I2CKeyPad keypad(KEYPAD_ADDRESS);
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
-const char* ssid = "Bachelor Family 2.4G";
-const char* password = "passwordnai";
+const char *ssid = "IoT Lab";
+const char *password = "bubt1234";  
+// const char* ssid = "Bachelor Family 2.4G";
+// const char* password = "passwordnai";
 
 String CORRECT_PIN = "1234";
 String inputPassword = "";
 String sessionCookie = ""; // Stores Django sessionid cookie
 
-String server_url = "http://192.168.1.138:8000/";
-String second_esp_url = "http://192.168.1.55/";
+String server_url = "http://192.168.68.131:8000/";
+String second_esp_url = "http://192.168.68.135/";
 
 WiFiClient client;
 HTTPClient http;

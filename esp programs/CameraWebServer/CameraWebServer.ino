@@ -12,8 +12,10 @@
 // ===========================
 // Enter your WiFi credentials
 // ===========================
-const char *ssid = "Bachelor Family 2.4G";
-const char *password = "passwordnai";
+const char *ssid = "IoT Lab";
+const char *password = "bubt1234";
+// const char *ssid = "Bachelor Family 2.4G";
+// const char *password = "passwordnai";
 
 void startCameraServer();
 void setupLedFlash();

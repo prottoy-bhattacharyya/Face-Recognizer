@@ -27,10 +27,10 @@ DEBUG = True
 
 ALLOWED_HOSTS = ['*']
 
-CAMERA_URL = "http://192.168.1.38"
+CAMERA_URL = "http://192.168.68.134"
 CAMERA_STREAM_URL = f"{CAMERA_URL}:81/stream"
 # CAMERA_STREAM_URL = "http://192.168.1.26:8080/video"
-CONTROL_SERVER_URL = "http://192.168.1.55/"
+CONTROL_SERVER_URL = "http://192.168.68.135/"
 
 # Application definition
 INSTALLED_APPS = [
